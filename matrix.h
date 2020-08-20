@@ -61,7 +61,7 @@ result_t
 MATRIX_open(const char * path, matrix_t **matrix_out);
 
 /**
- * @purpose Free a matrix which was previously created by MATRIX_dispatch
+ * @purpose Free a matrix which was previously created by MATRIX_open or MATRIX_allocate
  *
  * @param matrix The matrix to free
  *
@@ -130,6 +130,12 @@ MATRIX_is_close(matrix_t * matrix_a, matrix_t * matrix_b, double epsilon);
  */
 result_t
 MATRIX_random_vector(const int length, matrix_t ** vector_out);
+
+/**
+ * Open parse adjacency matrix
+ */
+result_t
+MATRIX_open_adjacency(const char * path, matrix_t **matrix_out);
 
 
 #endif /* __MATRIX_H__ */

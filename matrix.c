@@ -16,7 +16,6 @@
 #include "common.h"
 
 
-
 /* Functions ************************************************************************************/
 result_t
 MATRIX_allocate(int rows, int columns, matrix_t ** matrix_out)
@@ -259,3 +258,4 @@ l_cleanup:
 
     return result;
 }
+
