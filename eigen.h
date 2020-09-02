@@ -26,6 +26,7 @@
 result_t
 MATRIX_calculate_eigen(spmat *input,
                        const matrix_t *b_vector,
-                       matrix_t **eigen_out);
+                       matrix_t **eigen_out,
+					   matrix_t **prev_vector);
 
 #endif /* __EIGEN_H__ */

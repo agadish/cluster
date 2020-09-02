@@ -137,5 +137,31 @@ MATRIX_random_vector(const int length, matrix_t ** vector_out);
 result_t
 MATRIX_open_adjacency(const char * path, matrix_t **matrix_out);
 
+/*
+ * @purpose Create a "transpose" vector to row vector
+ *
+ * @param vector_in column vector.
+ * @param vector_out row vector corresponding to input vector
+ *
+ * @return One of result_t values
+ *
+ *
+ */
+result_t
+MATRIX_col_vector_transpose(matrix_t *vector_in, matrix_t **vector_out);
+
+/**
+ * @purpose Computes Ab
+ * @param matrix input matrix nxn
+ * @param vector input vector nx1
+ * @param vector_out outpur vector nx1
+ *
+ * @return One of result_t values
+ */
+result_t
+MATRIX_mat_vector_multiply(matrix_t * matrix,
+                    matrix_t * vector,
+                    matrix_t * vector_out);
+
 
 #endif /* __MATRIX_H__ */

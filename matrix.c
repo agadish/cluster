@@ -259,3 +259,71 @@ l_cleanup:
     return result;
 }
 
+result_t
+MATRIX_col_vector_transpose(matrix_t *vector_in, matrix_t **vector_out)
+{
+    result_t result = E__UNKNOWN;
+    matrix_t * res_vector = NULL;
+    int length = vector_in->header.rows;
+    int row; // For iterations
+
+    result = MATRIX_allocate(length, 1, &vector);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    for (col = 0 ; col < length ; ++col) {
+        MATRIX_AT(res_vector, 0, col) = MATRIX_AT(vector_in, col, 0);
+    }
+
+    *vector_out = res_vector;
+
+    result = E__SUCCESS;
+
+l_cleanup:
+    if (E__SUCCESS != result) {
+        FREE_SAFE(res_vector);
+    }
+
+    return result;
+}
+
+result_t
+MATRIX_mat_vector_multiply(matrix_t * matrix,
+                    matrix_t * vector,
+                    matrix_t ** vector_out)
+{
+    result_t result = E__UNKNOWN;
+    matrix_t * res_vector = NULL;
+    int length = matrix->header.rows;
+    int row;
+    int col;
+    int sum;
+
+    result = MATRIX_allocate(length, 1, &res_vector);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    for (row = 0 ; row < length ; ++row) {
+    	sum = 0;
+    	for (col = 0 ; col < length ; ++col){
+    		sum += MATRIX_AT(matrix, row, col) * MATRIX_AT(vector, col, 0)
+    	}
+
+    	MATRIX_AT(res_vector, row, 0) = sum;
+
+    }
+
+    *vector_out = res_vector;
+
+    result = E__SUCCESS;
+
+l_cleanup:
+    if (E__SUCCESS != result) {
+        FREE_SAFE(res_vector);
+    }
+
+    return result;
+}
+}

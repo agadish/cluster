@@ -21,7 +21,8 @@
 result_t
 MATRIX_calculate_eigen(spmat *input,
                 const matrix_t *b_vector,
-                matrix_t **eigen_out)
+                matrix_t **eigen_out,
+				matrix_t **prev_vector)
 {
     result_t result = E__UNKNOWN;
     matrix_t * vector_res = NULL;
@@ -68,12 +69,14 @@ MATRIX_calculate_eigen(spmat *input,
 
     /* Success */
     *eigen_out = vector_res;
+    *prev_vector = prev_vector_res;
 
     result = E__SUCCESS;
+
 l_cleanup:
-    MATRIX_free(prev_vector_res);
     if (E__SUCCESS != result) {
         MATRIX_free(vector_res);
+        MATRIX_free(prev_vector_res);
     }
 
     return result;
