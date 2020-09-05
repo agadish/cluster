@@ -19,32 +19,40 @@
 #include "common.h"
 #include "eigen.h"
 #include "results.h"
-#include "spmat.h"
 
 /* Functions ************************************************************************************/
 result_t
-calculate_leading_eigenvalue(matrix_t **leading_vector,
-					   matrix_t **prev_vector,
-					   double *eigen_value)
+calculate_leading_eigenvalue(matrix_t *matrix,
+					   matrix_t *eigen_vector,
+					   double *eigen_value_out)
 {
     result_t result = E__UNKNOWN;
     double denominator;
     double numerator;
     double res;
 
-    // need to add multiplication of matrices
+    if ((NULL == matrix) || (NULL == eigen_vector) || (NULL == eigen_value_out)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* need to add multiplication of matrices */
 
     res = numerator / denominator;
-    *eigen_value = res;
+    *eigen_value_out = res;
 
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
 }
 
 result_t
-algorithm1(spmat *input,
+algorithm1(matrix_t *input,
 		matrix_t **group1,
 		matrix_t **group2)
 {
-    result_t result = RESULT_UNKNOWN;
+    result_t result = E__UNKNOWN;
     matrix_t *leading_eigen = NULL;
     matrix_t *prev_eigen = NULL;
     matrix_t *s_vector = NULL;
@@ -52,7 +60,7 @@ algorithm1(spmat *input,
     double leading_eigenvalue;
     matrix_t Bs;
     matrix_t sTBs;
-    int i; //For iterations
+    int i = 0; /* For iterations */
 
     /* 1. Calculate leading eigenvector */
     result = MATRIX_calculate_eigen(input, &leading_eigen, &prev_eigen);

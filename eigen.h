@@ -8,7 +8,7 @@
 /* Includes **************************************************************************************/
 #include "results.h"
 #include "matrix.h"
-#include "spmat.h"
+#include "matrix.h"
 
 
 /* Macros ****************************************************************************************/
@@ -24,7 +24,7 @@
  * @remark The returned eigen must be freed using MATRIX_free
  */
 result_t
-MATRIX_calculate_eigen(spmat *input,
+MATRIX_calculate_eigen(matrix_t *input,
                        const matrix_t *b_vector,
                        matrix_t **eigen_out,
 					   matrix_t **prev_vector);

@@ -19,7 +19,7 @@ typedef enum result_e {
     E__INVALID_CMDLINE_ARGS, 
     E__ZERO_DIV_ERROR, 
     E__INVALID_ROW_INDEX, 
-    E__UNKNOWN_SPMAT_IMPLEMNTATION
+    E__UNKNOWN_MATRIX_IMPLEMNTATION
 } result_t; 
 
 #endif /* __RESULTS_H__ */

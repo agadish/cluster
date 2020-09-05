@@ -9,7 +9,7 @@
 
 #include "list_node.h"
 #include "results.h"
-#include "spmat.h"
+#include "matrix.h"
 #include "spmat_array.h"
 #include "common.h"
 
@@ -29,30 +29,30 @@ typedef struct spmat_array_s {
 /* Functions Declarations ************************************************************************/
 static
 void
-spmat_array_add_row(struct _spmat *A, const double *row, int i);
+spmat_array_add_row(matrix_t *A, const double *row, int i);
 
 static
 void
-spmat_array_free(struct _spmat *A);
+spmat_array_free(matrix_t *A);
 
 static
 void
-spmat_array_mult(const struct _spmat *A, const double *v, double *result);
+spmat_array_mult(const matrix_t *A, const double *v, double *result);
 
 
 /* Functions *************************************************************************************/
 result_t
-SPMAT_ARRAY_allocate(int n, int nnz, spmat **mat_out)
+SPMAT_ARRAY_allocate(int n, int nnz, matrix_t **mat_out)
 {
     result_t result = E__UNKNOWN;
-    spmat * mat = NULL;
+    matrix_t * mat = NULL;
     double *values = NULL;
     int *colind = NULL;
     int *rowptr = NULL;
     int i = 0;
     spmat_array_t *spmat_array_data = NULL;
 
-    mat = (spmat *)malloc(sizeof(spmat));
+    mat = (matrix_t *)malloc(sizeof(**mat_out));
     if (NULL == mat) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
@@ -113,7 +113,7 @@ l_cleanup:
 
 static
 void
-spmat_array_free(struct _spmat *mat)
+spmat_array_free(matrix_t *mat)
 {
     spmat_array_t *spmat_array_data = NULL;
 
@@ -132,7 +132,7 @@ spmat_array_free(struct _spmat *mat)
 
 static
 void
-spmat_array_add_row(struct _spmat *mat, const double *row, int i)
+spmat_array_add_row(matrix_t *mat, const double *row, int i)
 {
     bool_t first_found = FALSE;
     int j, n;
@@ -166,7 +166,7 @@ spmat_array_add_row(struct _spmat *mat, const double *row, int i)
 
 static
 void
-spmat_array_mult(const struct _spmat *mat, const double *v, double *result)
+spmat_array_mult(const matrix_t *mat, const double *v, double *result)
 {
     int row;
     int n;

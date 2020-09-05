@@ -8,7 +8,7 @@
 
 #include "list_node.h"
 #include "results.h"
-#include "spmat.h"
+#include "matrix.h"
 #include "spmat_list.h"
 #include "common.h"
 
@@ -27,23 +27,24 @@ typedef struct spmat_list_s {
 /* Functions Declarations ************************************************************************/
 static
 void
-spmat_list_add_row(struct _spmat *A, const double *row, int i);
+spmat_list_add_row(matrix_t *A, const double *row, int i);
 
 static
 void
-spmat_list_free(struct _spmat *A);
+spmat_list_free(matrix_t *A);
 
 static
 void
-spmat_list_mult(const struct _spmat *A, const double *v, double *result);
+spmat_list_mult(const matrix_t *A, const double *v, double *result);
 
 
 /* Functions *************************************************************************************/
 result_t
-SPMAT_LIST_allocate(int n, spmat **mat_out)
+SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 {
     result_t result = E__UNKNOWN;
-    spmat * mat = NULL;
+
+    matrix_t * mat = NULL;
     node_t **rows = NULL;
     size_t lists_array_size = 0;
 
@@ -53,14 +54,20 @@ SPMAT_LIST_allocate(int n, spmat **mat_out)
         goto l_cleanup;
     }
 
-    /* 1. Allocate spmat */
-    mat = malloc(sizeof(*mat));
+    if (0 > n) {
+        result = E__INVALID_SIZE;
+        goto l_cleanup;
+    }
+
+    /* 1. Allocate matrix_t */
+    mat = (matrix_t *)malloc(sizeof(*mat));
     if (NULL == mat) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
     /* 2. Initialize */
+    (void)memset(&mat, 0, sizeof(mat));
     mat->n = n;
     mat->add_row = spmat_list_add_row;
     mat->free = spmat_list_free;
@@ -91,7 +98,7 @@ l_cleanup:
 
 static
 void
-spmat_list_free(struct _spmat *mat)
+spmat_list_free(matrix_t *mat)
 {
     node_t **rows = NULL;
     int i = 0;
@@ -111,9 +118,8 @@ spmat_list_free(struct _spmat *mat)
     }
 }
 
-static
 void
-spmat_list_add_row(struct _spmat *mat, const double *row, int i)
+spmat_list_add_row(matrix_t *mat, const double *row, int i)
 {
     result_t result = E__UNKNOWN;
 
@@ -172,7 +178,7 @@ l_cleanup:
 
 static
 void
-spmat_list_mult(const struct _spmat *mat, const double *v, double *multiplication_result)
+spmat_list_mult(const matrix_t *mat, const double *v, double *multiplication_result)
 {
     result_t result = E__UNKNOWN;
     node_t **rows = NULL;

@@ -6,12 +6,12 @@
 #define __SPMAT_LIST_H__
 
 /* Includes **************************************************************************************/
-#include "spmat.h"
+#include "matrix.h"
 
 /* Functions Declarations ************************************************************************/
 /* Allocates a new linked-lists sparse matrix of size n */
 result_t
-SPMAT_LIST_allocate(int n, spmat **mat);
+SPMAT_LIST_allocate(int n, matrix_t **mat);
 
 
 #endif /* __SPMAT_LIST_H__ */

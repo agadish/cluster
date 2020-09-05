@@ -6,96 +6,80 @@
 #define __MATRIX_H__
 
 /* Includes **************************************************************************************/
+#include <stddef.h>
+
 #include "results.h"
 #include "common.h"
 
 
 /* Macros ****************************************************************************************/
 /* Number of elements on the matrix */
-#define MATRIX_COUNT(m) ((size_t)((m)->header.rows * (m)->header.columns))
+#define MATRIX_COUNT(m) ((size_t)((m)->n * (m)->n))
 
 /* Get the element at a given cow and column */
-#define MATRIX_AT(m, row, col) ((m)->data[((row) * (m)->header.columns) + (col)])
+#define SPMAT_IS_VALID_ROW_INDEX(A, i) (((A)->n > (i)) && (0 <= (i)))
+
+
+/* Enums *****************************************************************************************/
+typedef enum matrix_type_e {
+    MATRIX_TYPE_RAW = 0,
+    MATRIX_TYPE_SPMAT_LIST,
+    MATRIX_TYPE_SPMAT_ARRAY,
+    MATRIX_TYPE_MAX
+} matrix_type_t;
+
+
+/* Typedefs ***************************************************************************************/
+typedef struct matrix_s matrix_t;
+
+/* Adds row i the matrix. Called before any other call,
+ * exactly n times in order (i = 0 to n-1) */
+typedef void (*matrix_add_row_f)(matrix_t *matrix, const double *row, int i);
+
+	/* Frees all resources used by A */
+typedef void (*matrix_free_f)(matrix_t *matrix);
+
+	/* Multiplies matrix A by vector v, into result (result is pre-allocated) */
+typedef void (*matrix_mult_f)(const matrix_t *matrix, const double *vector, double *result);
+
+/* Divide a matrix with a constant */
+typedef void (*matrix_div_f)(matrix_t *matrix, double value);
+
+/* Calculate the matrix magnitude */
+typedef double (*matrix_calculate_magnitude_f)(matrix_t *matrix);
 
 
 /* Structs ***************************************************************************************/
-/* The matrix dimensions, from its binary format */
-typedef struct matrix_header_s {
-    int columns;
-    int rows;
-} matrix_header_t;
-
-/* The matrix dimensions and data */
-typedef struct matrix_s {
-    matrix_header_t header;
-    double * data;
-} matrix_t;
+/* A square matrix implementation */
+struct matrix_s {
+	int	n; /* Matrix size (n*n) */
+    matrix_add_row_f add_row;
+    matrix_free_f free;
+    matrix_mult_f mult;
+    matrix_div_f div;
+    matrix_calculate_magnitude_f calculate_magnitude;
+	void *private;
+};
 
 
 /* Functions Declarations *************************************************************/
-/*
- * @purpose Create a new matrix with the given dimensions
- *
- * @param rows The number of rows in the matrix
- * @param columns The number of columns in the matrix
- * @param matrix_out An external pointer which will point the new matrix
- *
- * @return One of result_t values
- *
- * @remark matrix must be freed using MATRIX_free
- */
-result_t
-MATRIX_allocate(int rows, int columns, matrix_t ** matrix_out);
-
-/*
- * @purpose Create a new matrix by a given encoded matrix file path
- *
- * @param matrix_path The path to the matrix file. must be valid matrix!
- * @param matrix_out An external pointer which will point the new matrix
- *
- * @return One of result_t values
- *
- * @remark matrix must be freed using MATRIX_free
- */
-result_t
-MATRIX_open(const char * path, matrix_t **matrix_out);
-
-/**
- * @purpose Free a matrix which was previously created by MATRIX_open or MATRIX_allocate
- *
- * @param matrix The matrix to free
- *
- * @remark Safe to call with NULL
- */
-void
-MATRIX_free(matrix_t * matrix);
-
-/**
- * @purpose Write a matrix to a given file
- * @param matrix The matrix to write
- * @param path The output path
+/* 
+ * @purpose Create a matrix accordingly to the given type
+ * 
+ * @param n The matrix's size nxn
+ * @param type The matrix's implementation
+ * @param matrix_out The matrix creadet
  *
  * @return One of result_t values
  */
 result_t
-MATRIX_write_to_file(const matrix_t * matrix, const char * path);
+MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out);
 
 /**
  * @remark vector_out must be freed later by MATRIX_free
  */
 result_t
-MATRIX_random_vector(const int length, matrix_t ** vector_out);
-
-/**
- * @purpose divides vector by scalar umber
- * @param vector The vector to divide
- * @param value The value to divide with
- *
- * @return One of result_t values
- */
-result_t
-MATRIX_div(matrix_t * vector, double value);
-
+MATRIX_random_vector(const int length, double ** vector_out);
 
 /**
  * @purpose Normalize each line of the matrix using the regular scalar multiplication
@@ -107,15 +91,10 @@ result_t
 MATRIX_normalize(matrix_t *matrix);
 
 /**
- * @remark matrix must be valid
- */
-double
-MATRIX_calculate_magnitude(matrix_t *matrix);
-
-/**
  * @purpose Checks if all the differences between the matrix' values are smaller than epsilon
- * @param matrix_a The first matrix
- * @param matrix_b The second matrix
+ * @param vector_a The first vector
+ * @param vector_b The second vector
+ * @param length The vectors' length
  * @param epsilon The largest difference allowed
  *
  * @return TRUE if close enough, otherwise FALSE
@@ -123,20 +102,9 @@ MATRIX_calculate_magnitude(matrix_t *matrix);
  * @remark Matrixes must have the same size
  */
 bool_t
-MATRIX_is_close(matrix_t * matrix_a, matrix_t * matrix_b, double epsilon);
+MATRIX_is_close(double * vector_a, double * vector_b, int length, double epsilon);
 
-/**
- * @remark vector_out must be freed later by MATRIX_free
- */
-result_t
-MATRIX_random_vector(const int length, matrix_t ** vector_out);
-
-/**
- * Open parse adjacency matrix
- */
-result_t
-MATRIX_open_adjacency(const char * path, matrix_t **matrix_out);
-
+#ifdef NEED_COL_VECTOR_TRANSPOSE
 /*
  * @purpose Create a "transpose" vector to row vector
  *
@@ -144,24 +112,10 @@ MATRIX_open_adjacency(const char * path, matrix_t **matrix_out);
  * @param vector_out row vector corresponding to input vector
  *
  * @return One of result_t values
- *
- *
  */
 result_t
 MATRIX_col_vector_transpose(matrix_t *vector_in, matrix_t **vector_out);
-
-/**
- * @purpose Computes Ab
- * @param matrix input matrix nxn
- * @param vector input vector nx1
- * @param vector_out outpur vector nx1
- *
- * @return One of result_t values
- */
-result_t
-MATRIX_mat_vector_multiply(matrix_t * matrix,
-                    matrix_t * vector,
-                    matrix_t * vector_out);
+#endif
 
 
 #endif /* __MATRIX_H__ */

@@ -18,7 +18,7 @@
 /* The adjacency_matrix dimensions and data */
 typedef struct adjacency_matrix_s {
     matrix_t *matrix;
-    int * neighbors;
+    int *neighbors;
     int M;
 } adjacency_matrix_t;
 
