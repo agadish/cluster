@@ -36,17 +36,11 @@ typedef struct matrix_s matrix_t;
  * exactly n times in order (i = 0 to n-1) */
 typedef void (*matrix_add_row_f)(matrix_t *matrix, const double *row, int i);
 
-	/* Frees all resources used by A */
+/* Frees all resources used by A */
 typedef void (*matrix_free_f)(matrix_t *matrix);
 
-	/* Multiplies matrix A by vector v, into result (result is pre-allocated) */
+/* Multiplies matrix A by vector v, into result (result is pre-allocated) */
 typedef void (*matrix_mult_f)(const matrix_t *matrix, const double *vector, double *result);
-
-/* Divide a matrix with a constant */
-typedef void (*matrix_div_f)(matrix_t *matrix, double value);
-
-/* Calculate the matrix magnitude */
-typedef double (*matrix_calculate_magnitude_f)(matrix_t *matrix);
 
 
 /* Structs ***************************************************************************************/
@@ -55,9 +49,8 @@ struct matrix_s {
 	int	n; /* Matrix size (n*n) */
     matrix_add_row_f add_row;
     matrix_free_f free;
-    matrix_mult_f mult;
-    matrix_div_f div;
-    matrix_calculate_magnitude_f calculate_magnitude;
+    matrix_mult_f mult; /* Multiple the matrix with a column vector */
+    matrix_mult_f rmult; /* Multiple a line vector with the matrix */
 	void *private;
 };
 
@@ -80,29 +73,6 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out);
  */
 result_t
 MATRIX_random_vector(const int length, double ** vector_out);
-
-/**
- * @purpose Normalize each line of the matrix using the regular scalar multiplication
- * @param matrix Matrix to normalize
- *
- * @return One of result_t values
- */
-result_t
-MATRIX_normalize(matrix_t *matrix);
-
-/**
- * @purpose Checks if all the differences between the matrix' values are smaller than epsilon
- * @param vector_a The first vector
- * @param vector_b The second vector
- * @param length The vectors' length
- * @param epsilon The largest difference allowed
- *
- * @return TRUE if close enough, otherwise FALSE
- *
- * @remark Matrixes must have the same size
- */
-bool_t
-MATRIX_is_close(double * vector_a, double * vector_b, int length, double epsilon);
 
 #ifdef NEED_COL_VECTOR_TRANSPOSE
 /*

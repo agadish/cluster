@@ -101,42 +101,6 @@ l_cleanup:
     return result;
 }
 
-result_t
-MATRIX_normalize(matrix_t *matrix)
-{
-    result_t result = E__UNKNOWN;
-    double magnitude = 0.0;
-
-    if (NULL == matrix) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
-
-    magnitude = matrix->calculate_magnitude(matrix);
-
-    matrix->div(matrix, magnitude);
-
-    result = E__SUCCESS;
-l_cleanup:
-
-    return result;
-}
-
-bool_t
-MATRIX_is_close(double * vector_a, double * vector_b, int length, double epsilon)
-{
-    bool_t result = TRUE;
-    int row = 0;
-
-    for (row = 0 ; row < length ; ++row) {
-        if (fabs(vector_a[row] - vector_b[row]) >= epsilon) {
-            result = FALSE;
-            break;
-        }
-    }
-    return result;
-}
-
 #ifdef NEED_COL_VECTOR_TRANSPOSE
 result_t
 MATRIX_col_vector_transpose(matrix_t *vector_in, matrix_t **vector_out)

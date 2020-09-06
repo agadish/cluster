@@ -33,24 +33,6 @@ static
 void
 matrix_raw_free(matrix_t * matrix);
 
-/**
- * @purpose divides vector by scalar umber
- * @param vector The vector to divide
- * @param value The value to divide with
- *
- * @return One of result_t values
- */
-static
-void
-matrix_raw_div(matrix_t * vector, double value);
-
-/**
- * @remark matrix must be valid
- */
-static
-double
-matrix_raw_calculate_magnitude(matrix_t *matrix);
-
 static
 void
 matrix_raw_add_row(matrix_t *mat, const double *row, int i);
@@ -66,6 +48,20 @@ matrix_raw_add_row(matrix_t *mat, const double *row, int i);
 static
 void
 matrix_raw_mat_vector_multiply(const matrix_t *matrix,
+                               const double *vector,
+                               double * multiplication);
+
+/**
+ * @purpose Given a matrix A and a line-vector b, Computes bA
+ * @param matrix input Matirx A [nxn]
+ * @param vector input Vector b [nx1]
+ * @param multiplication output Result vector [nx1]
+ *
+ * @return One of result_t values
+ */
+static
+void
+matrix_raw_vector_mat_multiply(const matrix_t *matrix,
                                const double *vector,
                                double * multiplication);
 
@@ -102,8 +98,7 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
     matrix->add_row = matrix_raw_add_row;
     matrix->free = matrix_raw_free;
     matrix->mult = matrix_raw_mat_vector_multiply;
-    matrix->div = matrix_raw_div;
-    matrix->calculate_magnitude = matrix_raw_calculate_magnitude;
+    matrix->rmult = matrix_raw_vector_mat_multiply;
 
     /* 3. Allocate data */
     matrix->private = malloc(sizeof(double) * n * n);
@@ -125,7 +120,7 @@ l_cleanup:
     return result;
 }
 
-
+static
 void
 matrix_raw_free(matrix_t * matrix)
 {
@@ -135,59 +130,8 @@ matrix_raw_free(matrix_t * matrix)
     }
 }
 
-void
-matrix_raw_div(matrix_t * vector, double value)
-{
-    result_t result = E__UNKNOWN;
-    double * buffer = RAW_ARRAY(vector);
-    double * buffer_end = NULL;
 
-    if (NULL == vector) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
-    if (0.0 == value) {
-        result = E__ZERO_DIV_ERROR;
-        goto l_cleanup;
-    }
-
-    buffer_end = RAW_ARRAY(vector) + MATRIX_COUNT(vector);
-    for ( ; buffer < buffer_end - 1; buffer += 2) {
-        buffer[0] /= value;
-        buffer[1] /= value;
-    }
-
-    if (buffer < buffer_end) {
-        buffer[0] /= value;
-    }
-
-    result = E__SUCCESS;
-l_cleanup:
-
-    (void)result;
-    return;
-}
-
-double
-matrix_raw_calculate_magnitude(matrix_t *matrix)
-{
-    double * current = RAW_ARRAY(matrix);
-    const double * end = RAW_ARRAY(matrix) + MATRIX_COUNT(matrix);
-    double magnitude = 0.0;
-
-    for ( ; end - 1 > current ; current +=2) {
-        magnitude += ((current[0] * current[0]) + (current[1] * current[1]));
-    }
-
-    for ( ; end > current ; ++current) {
-        magnitude += (current[0] * current[0]);
-    }
-
-    magnitude = sqrt(magnitude);
-
-    return magnitude;
-}
-
+static
 void
 matrix_raw_mat_vector_multiply(const matrix_t *matrix,
                                const double *vector,
@@ -202,7 +146,28 @@ matrix_raw_mat_vector_multiply(const matrix_t *matrix,
     }
 }
 
+static
+void
+matrix_raw_vector_mat_multiply(const matrix_t *matrix,
+                               const double *vector,
+                               double * multiplication)
+{
+    double column_sum = 0.0;
+    int row = 0;
+    int column = 0;
 
+    /* TODO: Optimize */
+    for (column = 0 ; column < matrix->n ; ++column) {
+        column_sum = 0.0;
+        for (row = 0 ; row < matrix->n ; ++row) {
+            column_sum += vector[column] * MATRIX_AT(matrix, row, column);
+        }
+        multiplication[column] = column_sum;
+    }
+}
+
+
+static
 void
 matrix_raw_add_row(matrix_t *mat, const double *row, int i)
 {

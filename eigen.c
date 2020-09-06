@@ -1,5 +1,5 @@
 /**
- * @file matrix.c
+ * @file eigen.c
  * @purpose 
  */
 
@@ -14,19 +14,20 @@
 #include "matrix.h"
 #include "common.h"
 #include "eigen.h"
-
+#include "vector.h"
+#include "config.h"
 
 
 /* Functions ************************************************************************************/
 result_t
-MATRIX_calculate_eigen(spmat *input,
-                const matrix_t *b_vector,
-                matrix_t **eigen_out)
+MATRIX_calculate_eigen(const matrix_t *input,
+                       double *b_vector,
+                       double **eigen_out)
 {
     result_t result = E__UNKNOWN;
-    matrix_t * vector_res = NULL;
-    matrix_t * prev_vector_res = NULL;
-    matrix_t * temp = NULL;
+    double * vector_res = NULL;
+    double * prev_vector_res = NULL;
+    double * temp = NULL;
 
     if ((NULL == input) || (NULL == b_vector) || (NULL == eigen_out)) {
         result = E__NULL_ARGUMENT;
@@ -35,36 +36,27 @@ MATRIX_calculate_eigen(spmat *input,
 
     /* 1. Allocate vectors */
     /* 1.1. Create two vectors: for result, and previous result */
-    result = MATRIX_allocate(input->n, 1, &vector_res);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-    /* 1.2. Create eigen vector */
-    result = MATRIX_allocate(input->n, 1, &prev_vector_res);
-    if (E__SUCCESS != result) {
+    prev_vector_res = (double *)malloc(sizeof(*prev_vector_res) * input->n);
+    if (NULL == vector_res) {
+        result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    /* 2. Multiply matrix and b-vector for the first time */
-    input->mult(input, b_vector->data, vector_res->data);
-    result = MATRIX_normalize(vector_res);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-
-    /* 3. Multiply the matrix and vector until the previous result is close enough */
+    /* 2. Multiply the matrix and vector until the previous result is close enough */
+    /* 2.1. The first initialization works as the given b_vector was the loop's vector_res */
+    vector_res = b_vector;
     do {
         /* Swap */
         temp = vector_res;
         vector_res = prev_vector_res;
         prev_vector_res = temp;
 
-        input->mult(input, prev_vector_res->data, vector_res->data);
-        result = MATRIX_normalize(vector_res);
+        input->mult(input, prev_vector_res, vector_res);
+        result = VECTOR_normalize(vector_res, input->n);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
-    } while (!MATRIX_is_close(vector_res, prev_vector_res, 0.00001));
+    } while (!VECTOR_is_close(vector_res, prev_vector_res, input->n, EPSILON));
 
     /* Success */
     *eigen_out = vector_res;
@@ -72,10 +64,7 @@ MATRIX_calculate_eigen(spmat *input,
     result = E__SUCCESS;
 
 l_cleanup:
-    if (E__SUCCESS != result) {
-        MATRIX_free(vector_res);
-        MATRIX_free(prev_vector_res);
-    }
+    FREE_SAFE(prev_vector_res);
 
     return result;
 }

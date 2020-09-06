@@ -13,20 +13,22 @@
 
 /* Macros ****************************************************************************************/
 
+
+/* Functions *************************************************************************************/
 /**
  * @purpose fivides eigenvector as close as epsilon
  * @param spmat The input matrix
- * @param b_vecor A pre allocated b_vector
+ * @param b_vecor A pre initialized b_vector. Will be modified!
  * @param eigen_out The calculated eigen value
  *
  * @return One of result_t values
  *
  * @remark The returned eigen must be freed using MATRIX_free
+ * @remark v_vector will be modified
  */
 result_t
-MATRIX_calculate_eigen(matrix_t *input,
-                       const matrix_t *b_vector,
-                       matrix_t **eigen_out,
-					   matrix_t **prev_vector);
+MATRIX_calculate_eigen(const matrix_t *input,
+                       double *b_vector,
+                       double **eigen_out);
 
 #endif /* __EIGEN_H__ */

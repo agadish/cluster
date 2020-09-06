@@ -6,28 +6,46 @@
 /* Includes **************************************************************************************/
 #include <time.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "vector.h"
 #include "results.h"
 #include "common.h"
 
-#define OPTIMIZE_SCALAR_MULTIPLICATION
+#define OPTIMIZE_VECTOR_OPERATIONS
+
+/* Functions Declarations ************************************************************************/
+static
+double
+vector_calculate_magnitude(double *vector, size_t length);
+
+/**
+ * @purpose divides vector by scalar umber
+ * @param vector The vector to divide
+ * @param length The vector length
+ * @param value The value to divide with
+ *
+ * @remark vector must be valid buffer, value must be non-zero
+ */
+static
+void
+vector_div(double *vector, size_t length, double value);
 
 
 /* Functions *************************************************************************************/
 double
-VECTOR_scalar_multiply(const double * l1, const double * l2, int n)
+VECTOR_scalar_multiply(const double * l1, const double * l2, size_t n)
 {
     double result = 0.0;
     const double * l1_end = l1 + n;
 
-#ifdef OPTIMIZE_SCALAR_MULTIPLICATION
+#ifdef OPTIMIZE_VECTOR_OPERATIONS
     for ( ; l1 < l1_end - 1 ; l1 += 2, l2 += 2) {
         result += ((l1[0] * l2[0]) + (l1[1] * l2[1]));
     }
-#endif /* OPTIMIZE_SCALAR_MULTIPLICATION */
+#endif /* OPTIMIZE_VECTOR_OPERATIONS */
 
-    /* If OPTIMIZE_SCALAR_MULTIPLICATION is defined, this will run up to 3 iterations */
+    /* If OPTIMIZE_VECTOR_OPERATIONS is defined, this will run up to 1 iteration */
     for ( ; l1 < l1_end ; ++l1, ++l2) {
         result += (l1[0] * l2[0]);
     }
@@ -36,14 +54,14 @@ VECTOR_scalar_multiply(const double * l1, const double * l2, int n)
 }
 
 result_t
-VECTOR_random_vector(const int length, double ** vector_out)
+VECTOR_random_vector(size_t length, double ** vector_out)
 {
     result_t result = E__UNKNOWN;
     double * vector = NULL;
-    int i = 0;
+    size_t i = 0;
     int random_int = 0;
 
-    if ((NULL == vector_out) || (0 > length)) {
+    if (NULL == vector_out) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
@@ -69,6 +87,81 @@ l_cleanup:
         FREE_SAFE(vector);
     }
 
+    return result;
+}
+
+static
+double
+vector_calculate_magnitude(double *vector, size_t length)
+{
+    double norm_square = 0.0;
+    double magnitude = 0.0;
+
+    norm_square = VECTOR_scalar_multiply(vector, vector, length);
+    magnitude = sqrt(norm_square);
+
+    return magnitude;
+}
+
+static
+void
+vector_div(double *vector, size_t length, double value)
+{
+    double * i = NULL;
+    double * vector_end = NULL;
+
+    /* 1. Initialize vector start and end */
+    i = vector;
+    vector_end = vector + length;
+
+    /* 2. Divide using optimization */
+#ifdef OPTIMIZE_VECTOR_OPERATIONS
+    for ( ; i < vector_end - 1; i += 2) {
+        i[0] /= value;
+        i[1] /= value;
+    }
+#endif /* OPTIMIZE_VECTOR_OPERATIONS */
+
+    for (; i < vector_end ; ++i) {
+        i[0] /= value;
+    }
+}
+
+result_t
+VECTOR_normalize(double *vector, size_t length)
+{
+    result_t result = E__UNKNOWN;
+    double magnitude = 0.0;
+
+    if (NULL == vector) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    magnitude = vector_calculate_magnitude(vector, length);
+    vector_div(vector, length, magnitude);
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}
+
+bool_t
+VECTOR_is_close(const double * vector_a,
+                const double * vector_b,
+                size_t length,
+                double epsilon)
+{
+    bool_t result = TRUE;
+    size_t row = 0;
+
+    for (row = 0 ; row < length ; ++row) {
+        if (fabs(vector_a[row] - vector_b[row]) >= epsilon) {
+            result = FALSE;
+            break;
+        }
+    }
     return result;
 }
 

@@ -72,6 +72,10 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     mat->add_row = spmat_list_add_row;
     mat->free = spmat_list_free;
     mat->mult = spmat_list_mult;
+    /* TODO: Implement */
+    mat->rmult = NULL;
+
+    mat->private = NULL;
 
     /* 3. Rows array */
     lists_array_size = n * sizeof(node_t *);

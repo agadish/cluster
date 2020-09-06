@@ -6,7 +6,7 @@
 #define __ALGO1_C__
 
 
- /* Includes **************************************************************************************/
+/* Includes **************************************************************************************/
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -19,112 +19,175 @@
 #include "common.h"
 #include "eigen.h"
 #include "results.h"
+#include "vector.h"
+
+
+/* Functions Declarations ***********************************************************************/
+static
+result_t
+calculate_leading_eigenvalue(const matrix_t *matrix,
+        const double *eigen_vector,
+        double *eigen_value_out);
+
 
 /* Functions ************************************************************************************/
-result_t
-calculate_leading_eigenvalue(matrix_t *matrix,
-					   matrix_t *eigen_vector,
-					   double *eigen_value_out)
+static
+    result_t
+calculate_leading_eigenvalue(const matrix_t *matrix,
+        const double *eigen_vector,
+        double *eigen_value_out)
 {
     result_t result = E__UNKNOWN;
-    double denominator;
-    double numerator;
-    double res;
+    double total_ratio = 0.0;
+    size_t number_of_ratios = 0;
+    double eigen_value = 0.0;
+    double *av = NULL;
+    int i = 0;
 
+    /* 0. Input validation */
     if ((NULL == matrix) || (NULL == eigen_vector) || (NULL == eigen_value_out)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
 
-    /* need to add multiplication of matrices */
+    /* 1. Multiply the matrice with the vector */
+    /* 1.1. Allocate result */
+    av = (double *)malloc(sizeof(*eigen_vector) * matrix->n);
+    if (NULL == av) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
 
-    res = numerator / denominator;
-    *eigen_value_out = res;
+    /* 1.2. Multiply */
+    matrix->mult(matrix, eigen_vector, av);
+
+    /* 2. Calculate the avarage ratio between elements of Av and the eigen */
+    /* 2.1. Sum all ratios */
+    for (i = 0 ; i < matrix->n ; ++i) {
+        /* Av=gv ---> g = (Av)/v
+         * We'll calculate the avarage ratio. v[i] must not be zero */
+        if (0 != eigen_vector[i]) {
+            ++number_of_ratios;
+            total_ratio += av[i] / eigen_vector[i];
+        }
+    }
+
+    /* 2.2. Calculate the avarage, or set as 0 */
+    if (0 < number_of_ratios) {
+        eigen_value = total_ratio / number_of_ratios;
+    } else {
+        eigen_value = 0;
+    }
+
+    /* Success */
+    *eigen_value_out = eigen_value;
 
     result = E__SUCCESS;
 l_cleanup:
 
+    FREE_SAFE(av);
     return result;
 }
 
 result_t
 algorithm1(matrix_t *input,
-		matrix_t **group1,
-		matrix_t **group2)
+        matrix_t **group1,
+        matrix_t **group2)
 {
     result_t result = E__UNKNOWN;
-    matrix_t *leading_eigen = NULL;
-    matrix_t *prev_eigen = NULL;
-    matrix_t *s_vector = NULL;
-    matrix_t *transpose= NULL;
-    double leading_eigenvalue;
-    matrix_t Bs;
-    matrix_t sTBs;
-    int i = 0; /* For iterations */
+    double *leading_eigen = NULL;
+    double *b_vector = NULL;
+    double *s_vector = NULL;
+    double leading_eigenvalue = 0.0;
+    double *bs = NULL;
+    double stbs = 0.0;
+    int i = 0;
 
     /* 1. Calculate leading eigenvector */
-    result = MATRIX_calculate_eigen(input, &leading_eigen, &prev_eigen);
-    if (RESULT_SUCCESS != result) {
-        goto l_cleanup;
-    }
-
-    /* 2. Calculate corresponding eigenvalue */
-    result = calculate_leading_eigenvalue(&leading_eigen, &prev_eigen, &leading_eigenvalue);
-    if (RESULT_SUCCESS != result) {
-        goto l_cleanup;
-    }
-
-    /* 3. Check divisibility #1 */
-    if (leading_eigenvalue <= 0) {
-    	//Network is indivisable
-    	*group1 = NULL;
-    	*group2 = NULL;
-    	return result;
-    }
-
-    /* 4. Generate S vector */
-    result = MATRIX_allocate(1, input->n, &s_vector);
+    /* 1.1. Create b-vector */
+    result = VECTOR_random_vector(input->n, &b_vector);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
-    for (i = 0 ; i < input->n; ++row) {
-    	if(MATRIX_AT(leading_eigen, i, 0) > 0) {
-    		MATRIX_AT(s_vector, i, 0) = 1;
-    	} else {
-    		MATRIX_AT(s_vector, i, 0) = -1;
-    	}
+    /* 1.2. Create b-vector */
+    result = MATRIX_calculate_eigen(input, b_vector, &leading_eigen);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+    /* 1.3. Free the b-vector */
+    FREE_SAFE(b_vector);
+
+    /* 2. Calculate corresponding eigenvalue */
+    result = calculate_leading_eigenvalue(input, leading_eigen, &leading_eigenvalue);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
     }
 
-    /* 5. Check divisibility #2 */
-    /* 5.1 Calculating sTBs */
-    MATRIX_row_vector_transpose(s_vector, &s_transpose);
-    MATRIX_mat_vector_multiply(input, s_vector, &Bs)
-    MATRIX_mat_vector_multiply(s_transpose, Bs, &sTBs)
-
-    //sTBs has only one value at (0,0)
-
-	/* 5.2 Actually Checking divisibility */
-    if (MATRIX_AT(sTBs, 0, 0) <= 0) {
-    	//Network is indivisable
-    	*group1 = NULL;
-    	*group2 = NULL;
-    	return result;
+    /* 3. Check divisibility #1 */
+    if (0 >= leading_eigenvalue) {
+        /* 4.1. Network is indivisable */
+        *group1 = NULL;
+        *group2 = NULL;
+        goto l_cleanup;
     }
 
-    /* 6. Generate divised group */
-    //If we are here the netwrk is divisible
+    /* 4. Generate S vector */
+    /* 4.1. Allocate */
+    s_vector = (double *)malloc(sizeof(*s_vector) * input->n);
+    if (NULL == s_vector) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
 
-    /////////// ?? Im not sure vectors is the right representations of the groups ???
-
-
-    l_cleanup:
-		/// ??
-        if (E__SUCCESS != result) {
-        	////??
+    /* 5.1. Calculate */
+    for (i = 0 ; i < input->n; ++i) {
+        if (0 < leading_eigen[i]) {
+            s_vector[i] = 1;
+        } else {
+            s_vector[i] = -1;
         }
+    }
 
+    /* 6. Calculating stbs */
+    /* 6.1. Allocate stbs */
+    bs = (double *)malloc(sizeof(*bs) * input->n);
+    if (NULL == bs) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
+    /* 6.2. Bs: Multiply B with s */
+    input->mult(input, s_vector, bs);
+
+    /* 6.3. sTBs: Multiply s_transposed with Bs */
+    stbs = VECTOR_scalar_multiply(s_vector, bs, input->n);
+
+    /* 6.4. Free bs */
+    FREE_SAFE(bs);
+
+    /* 7. Check divisibility #2 */
+    if (0 >= stbs) {
+        /* 7.1. Network is indivisable */
+        *group1 = NULL;
+        *group2 = NULL;
         return result;
+    }
+
+    /* 8. Generate divised group */
+    /* If we are here the netwrk is divisible */
+
+    /* Im not sure vectors is the right representations of the groups ??? */
+
+
+l_cleanup:
+    if (E__SUCCESS != result) {
+    }
+    FREE_SAFE(b_vector);
+    FREE_SAFE(bs);
+    FREE_SAFE(s_vector);
+
+    return result;
 }
 
 
