@@ -206,3 +206,192 @@ l_cleanup:
     return;
 }
 
+/**
+ *
+ * @param relevant_value 1 or -1 accordingly to the values belong to the given reduced line
+ */
+static
+result_t
+spmat_list_reduce_line(const node_t *original_line,
+                       const double * vector_s,
+                       size_t vector_s_length,
+                       double relevant_value,
+                       node_t **reduced_list_out)
+{
+    result_t result = E__UNKNOWN;
+    node_t *original_line_scanner = NULL;
+    node_t *reduced_list_start = NULL; /* Will be returned */
+    node_t *reduced_list_end = NULL; /* Will stick to its end */
+    node_t *reduced_last_node = NULL; /* Temporary for newly created last node */
+    size_t s_scanner = 0;
+    int reduced_index = 0;
+
+    /* 1. Check if original line is zeroes */
+    if (NULL == original_line) {
+        result = E__SUCCESS;
+        goto l_cleanup;
+    }
+
+    original_line_scanner = original_line;
+
+    /* Scan the whole s vector:
+     * 1 1 -1 1 -1 -1 1 -1 -1 ..... 1 */
+    for (s_scanner = 0 ;
+        ((s_scanner < vector_s_length) && (NULL != original_line_scanner)) ;
+        ++s_scanner)
+    {
+        /* We're looking at relevant_value = -1:
+         *      V    V  V    V  V
+         * 1 1 -1 1 -1 -1 1 -1 -1..... 1
+         *
+         * The original line contains:
+         * * * 5 *  0  *  *  0  2 ... *
+         *
+         * The linked list is:
+         *        [ BLAH  ]    [       ]     [ BLAH  ]     [       ]
+         *  HEAD: [ val X ] -->[ val 5 ] --> [ val X ] --> [ val 2 ] --> NULL
+         *        [ ind X ]    [ ind 2 ]     [ ind X ]     [ ind 8 ]    
+         *
+         * We will create:
+         *        [       ]     [       ]
+         *  HEAD: [ val 5 ] --> [ val 2 ] --> NULL
+         *        [ ind 0 ]     [ ind 1 ]
+         *
+         */
+        if (vector_s[s_scanner] == relevant_value) {
+            /* original_line_scanner->index is ind 2 */
+            if (original_line_scanner->index == s_scanner) {
+                /* We encountered the ind 2 or ind 5 */
+                /* Create a new node */
+                result = LIST_NODE_create(original_line_scanner->value,
+                                          reduced_index,
+                                          &reduced_last_node);
+                if (E__SUCCESS != result) {
+                    goto l_cleanup;
+                }
+
+                /* Append the new node */
+                if (NULL != reduced_list_end) {
+                    /* First node in list */
+                    reduced_list_start = reduced_last_node;
+                } else {
+                    /* Link with the list's end */
+                    reduced_list_end->next = reduced_last_node;
+                }
+
+                reduced_list_end = reduced_last_node;
+                
+                /* Increase original_line_scanner */
+                original_line_scanner = original_line_scanner->next;
+            }
+
+            ++reduced_index;
+        }
+    }
+
+    /* Success */
+    *reduced_list_out = reduced_list_start;
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}
+
+result_t
+SPMAT_LIST_divide_matrix(const matrix_t *matrix,
+                         const double * vector_s,
+                         matrix_t **matrix1_out,
+                         matrix_t **matrix2_out,
+                         size_t ones_count)
+{
+    result_t result = E__UNKNOWN;
+    matrix_t *matrix1 = NULL;
+    matrix_t *matrix2 = NULL;
+    size_t i = 0;
+    size_t matrix1_i = 0;
+    size_t matrix2_i = 0;
+    node_t **rows = NULL;
+    /* Original line in matrix */
+    const node_t *scanned_row = NULL;
+    /* Points to newly initialised row either of matrix1 or matrix2 */
+    node_t *new_row = NULL;
+    int new_s_value = 0;
+    int scanned_s_value = 0;
+
+    /* 0. Input validation */
+    /* Null arguments */
+    if ((NULL == matrix) ||
+            (NULL == vector_s) ||
+            (NULL == matrix1_out) ||
+            (NULL == matrix2_out)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* Input matrix must be spmat list */
+    if (MATRIX_TYPE_SPMAT_LIST != matrix->type) {
+        result = E__INVALID_MATRIX_TYPE;
+        goto l_cleanup;
+    }
+
+    /* 1. Create matrixes as spmat lists */
+    result = MATRIX_create_matrix(ones_count, MATRIX_TYPE_SPMAT_LIST, &matrix1);
+    if (E__SUCCESS != result) {
+        goto l_cleanup
+    }
+
+    result = MATRIX_create_matrix(matrix->n - ones_count, MATRIX_TYPE_SPMAT_LIST, &matrix2);
+    if (E__SUCCESS != result) {
+        goto l_cleanup
+    }
+    
+    /* 2. Split matrix */
+    rows = (node_t **)mat->private;
+    for (i = 0 ; i < matrix->n ; ++i) {
+        scanned_s_value = vector_s[i];
+
+        /* 2.1. Find matching row */
+        switch (scanned_s_value)
+        {
+        case 1:
+            /* Row belongs to matrix1 */
+            new_row = matrix1->rows[matrix1_i];
+            ++matrix1_i;
+            break;
+        case -1:
+            /* Row belongs to matrix2 */
+            new_row = matrix2->rows[matrix2_i];
+            ++matrix2_i;
+            break;
+        default:
+            /* Error */
+            result = E__INVALID_S_VECTOR;
+            goto l_cleanup;
+        }
+
+        /* 2.2. Split matching row */
+        for (scanned_row = rows[i] ; NULL != scanned_row ; scanned_row = scanned_row->next) {
+            new_s_value = s_vector[scanned_row->index];
+            if (scanned_s_value == 
+
+        }
+    }
+
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    if (E__SUCCESS != result) {
+        if (NULL != matrix1) {
+            MATRIX_FREE(matrix1);
+            matrix1 = NULL;
+        }
+        if (NULL != matrix2) {
+            MATRIX_FREE(matrix2);
+            matrix2 = NULL;
+        }
+    }
+
+    return result;
+}
+

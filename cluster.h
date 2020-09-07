@@ -2,8 +2,8 @@
  * @file algorithm1.h
  * @purpose Compute algorithm 1 from the assignment
  */
-#ifndef __ALGO1_H__
-#define __ALGO1_H__
+#ifndef __CLUSTER_H__
+#define __CLUSTER_H__
 
 
  /* Includes **************************************************************************************/
@@ -41,9 +41,9 @@ calculate_leading_eigenvalue(matrix_t **leading_vector,
  * @remark The returned eigen must be freed using MATRIX_free
  */
 result_t
-algorithm1(spmat *input,
-		matrix_t **group1,
-		matrix_t **group2);
+CLUSTER_divide(spmat *input,
+               matrix_t **group1,
+               matrix_t **group2);
 
 
 
@@ -51,4 +51,4 @@ algorithm1(spmat *input,
 
 
 
-#endif /* __ALGO1_H__ */
+#endif /* __CLUSTER_H__ */

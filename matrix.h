@@ -19,6 +19,8 @@
 /* Get the element at a given cow and column */
 #define SPMAT_IS_VALID_ROW_INDEX(A, i) (((A)->n > (i)) && (0 <= (i)))
 
+#define MATRIX_FREE(m) ((m)->free((m)))
+
 
 /* Enums *****************************************************************************************/
 typedef enum matrix_type_e {
@@ -47,6 +49,7 @@ typedef void (*matrix_mult_f)(const matrix_t *matrix, const double *vector, doub
 /* A square matrix implementation */
 struct matrix_s {
 	int	n; /* Matrix size (n*n) */
+    matrix_type_t type;
     matrix_add_row_f add_row;
     matrix_free_f free;
     matrix_mult_f mult; /* Multiple the matrix with a column vector */

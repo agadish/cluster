@@ -19,7 +19,9 @@ typedef enum result_e {
     E__INVALID_CMDLINE_ARGS, 
     E__ZERO_DIV_ERROR, 
     E__INVALID_ROW_INDEX, 
-    E__UNKNOWN_MATRIX_IMPLEMNTATION
+    E__UNKNOWN_MATRIX_IMPLEMNTATION,
+    E__INVALID_MATRIX_TYPE,
+    E__INVALID_S_VECTOR
 } result_t; 
 
 #endif /* __RESULTS_H__ */

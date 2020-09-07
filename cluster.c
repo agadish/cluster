@@ -1,11 +1,7 @@
 /*
- * @file algorithm1.c
+ * @file cluster.c
  * @purpose Compute algorithm 1 from the assignment
  */
-#ifndef __ALGO1_C__
-#define __ALGO1_C__
-
-
 /* Includes **************************************************************************************/
 
 #include <stddef.h>
@@ -25,15 +21,15 @@
 /* Functions Declarations ***********************************************************************/
 static
 result_t
-calculate_leading_eigenvalue(const matrix_t *matrix,
+cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
         const double *eigen_vector,
         double *eigen_value_out);
 
 
 /* Functions ************************************************************************************/
 static
-    result_t
-calculate_leading_eigenvalue(const matrix_t *matrix,
+result_t
+cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
         const double *eigen_vector,
         double *eigen_value_out)
 {
@@ -90,9 +86,9 @@ l_cleanup:
 }
 
 result_t
-algorithm1(matrix_t *input,
-        matrix_t **group1,
-        matrix_t **group2)
+CLUSTER_divide(matrix_t *input,
+               matrix_t **group1,
+               matrix_t **group2)
 {
     result_t result = E__UNKNOWN;
     double *leading_eigen = NULL;
@@ -101,6 +97,7 @@ algorithm1(matrix_t *input,
     double leading_eigenvalue = 0.0;
     double *bs = NULL;
     double stbs = 0.0;
+    size_t s_ones = 0;
     int i = 0;
 
     /* 1. Calculate leading eigenvector */
@@ -119,7 +116,7 @@ algorithm1(matrix_t *input,
     FREE_SAFE(b_vector);
 
     /* 2. Calculate corresponding eigenvalue */
-    result = calculate_leading_eigenvalue(input, leading_eigen, &leading_eigenvalue);
+    result = cluster_calculate_leading_eigenvalue(input, leading_eigen, &leading_eigenvalue);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -144,6 +141,7 @@ algorithm1(matrix_t *input,
     for (i = 0 ; i < input->n; ++i) {
         if (0 < leading_eigen[i]) {
             s_vector[i] = 1;
+            ++s_ones;
         } else {
             s_vector[i] = -1;
         }
@@ -190,5 +188,3 @@ l_cleanup:
     return result;
 }
 
-
-#endif /* __ALGO1_C__ */
