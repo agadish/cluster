@@ -16,6 +16,7 @@
 #include "eigen.h"
 #include "results.h"
 #include "vector.h"
+#include "spmat_list.h"
 
 
 /* Functions Declarations ***********************************************************************/
@@ -87,8 +88,8 @@ l_cleanup:
 
 result_t
 CLUSTER_divide(matrix_t *input,
-               matrix_t **group1,
-               matrix_t **group2)
+               matrix_t **group1_out,
+               matrix_t **group2_out)
 {
     result_t result = E__UNKNOWN;
     double *leading_eigen = NULL;
@@ -99,6 +100,8 @@ CLUSTER_divide(matrix_t *input,
     double stbs = 0.0;
     size_t s_ones = 0;
     int i = 0;
+    matrix_t *group1 = NULL;
+    matrix_t *group2 = NULL;
 
     /* 1. Calculate leading eigenvector */
     /* 1.1. Create b-vector */
@@ -124,8 +127,9 @@ CLUSTER_divide(matrix_t *input,
     /* 3. Check divisibility #1 */
     if (0 >= leading_eigenvalue) {
         /* 4.1. Network is indivisable */
-        *group1 = NULL;
-        *group2 = NULL;
+        *group1_out = NULL;
+        *group2_out = NULL;
+        result = E__SUCCESS;
         goto l_cleanup;
     }
 
@@ -167,28 +171,32 @@ CLUSTER_divide(matrix_t *input,
     /* 7. Check divisibility #2 */
     if (0 >= stbs) {
         /* 7.1. Network is indivisable */
-        *group1 = NULL;
-        *group2 = NULL;
+        *group1_out = NULL;
+        *group2_out = NULL;
         return result;
     }
 
     /* 8. Generate divised group */
     /* If we are here the netwrk is divisible */
-    result = SPMAT_LIST_divide_matrix(input, s_vector, group1, group2);
+    result = SPMAT_LIST_divide_matrix(input, s_vector, &group1, &group2);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
+    /* Success */
+    *group1_out = group1;
+    *group2_out = group2;
+    result = E__SUCCESS;
 
 l_cleanup:
     if (E__SUCCESS != result) {
-        if (NULL != matrix1) {
-            MATRIX_FREE(matrix1);
-            matrix1 = NULL;
+        if (NULL != group1) {
+            MATRIX_FREE(group1);
+            group1 = NULL;
         }
-        if (NULL != matrix2) {
-            MATRIX_FREE(matrix2);
-            matrix2 = NULL;
+        if (NULL != group2) {
+            MATRIX_FREE(group2);
+            group2 = NULL;
         }
     }
     FREE_SAFE(b_vector);

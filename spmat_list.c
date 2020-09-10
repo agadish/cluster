@@ -14,15 +14,24 @@
 
 
 /* Structs ***************************************************************************************/
+typedef struct spmat_row_s {
+    /* n-sized array of linked lists */
+    node_t *begin;
+    int sum;
+} spmat_row_t;
+
 typedef struct spmat_list_s {
     /* n-sized array of linked lists */
-    node_t **rows;
-} spmat_list_t;
+    spmat_row_t *rows;
+} spmat_rows_array_t;
 
 
 /* Macros ****************************************************************************************/
 #define SPMAT_LIST_IS_VALID_ROW_INDEX(A, i) (((A)->n > i) && (0 <= i))
-#define GET_ROW(list, row_index) (((node_t **)((list)->private))[(row_index)])
+
+#define GET_ROWS_ARRAY(list) ((spmat_rows_array_t *)((list)->private))
+
+#define GET_ROW(list, row_index) (GET_ROWS_ARRAY(list)->rows[(row_index)].begin)
 
 
 /* Functions Declarations ************************************************************************/
@@ -55,6 +64,10 @@ spmat_list_reduce_row(const node_t *original_row,
                        const int * s_indexes,
                        node_t **row_out);
 
+static
+void
+spmat_list_free_row(spmat_row_t *row);
+
 
 /* Functions *************************************************************************************/
 result_t
@@ -63,8 +76,8 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     result_t result = E__UNKNOWN;
 
     matrix_t * mat = NULL;
-    node_t **rows = NULL;
-    int lists_array_size = 0;
+    spmat_rows_array_t *rows_array = NULL;
+    int rows_array_size = 0;
 
     /* 0. Input validation */
     if (NULL == mat) {
@@ -95,15 +108,22 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 
     mat->private = NULL;
 
-    /* 3. Rows array */
-    lists_array_size = n * sizeof(node_t *);
-    rows = malloc(lists_array_size);
-    if (NULL == rows) {
+    /* 3. Allocate private rows_array */
+    rows_array = (spmat_rows_array_t *)malloc(sizeof(*rows_array));
+    if (NULL == rows_array) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
-    (void)memset(rows, 0, lists_array_size);
-    mat->private = (void *)rows;
+
+    /* 3. Rows array */
+    rows_array_size = n * sizeof(*(rows_array->rows));
+    rows_array->rows = (spmat_row_t *)malloc(rows_array_size);
+    if (NULL == rows_array->rows) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+    (void)memset(rows_array->rows, 0, rows_array_size);
+    mat->private = (void *)rows_array;
 
     /* Success */
     *mat_out = mat;
@@ -122,18 +142,17 @@ static
 void
 spmat_list_free(matrix_t *mat)
 {
-    node_t **rows = NULL;
+    spmat_rows_array_t *rows_array = NULL;
     int i = 0;
 
     if (NULL != mat) {
-        rows = (node_t **)mat->private;
-        if (NULL != mat->private) {
+        rows_array = GET_ROWS_ARRAY(mat);
+        if (NULL != rows_array) {
             for (i = 0 ; i < mat->n ; ++i) {
-                LIST_NODE_destroy(rows[i]);
-                rows[i] = NULL;
+                LIST_NODE_destroy(rows_array->rows[i].begin);
+                rows_array->rows[i].begin = NULL;
             }
-            FREE_SAFE(mat->private);
-            rows = NULL;
+            FREE_SAFE(rows_array);
             mat->private = NULL;
         }
         FREE_SAFE(mat);
@@ -141,14 +160,14 @@ spmat_list_free(matrix_t *mat)
 }
 
 void
-spmat_list_add_row(matrix_t *mat, const double *row, int i)
+spmat_list_add_row(matrix_t *mat, const double *row, int row_index)
 {
     result_t result = E__UNKNOWN;
 
     node_t *new_row_end = NULL;
     node_t *new_row_current = NULL;
-    int column = 0;
-    node_t **rows = NULL;
+    int i = 0;
+    spmat_rows_array_t *rows_array = NULL;
 
     /* 1. Input validation */
     if ((NULL == mat) || (NULL == mat->private) || (NULL == row)) {
@@ -156,43 +175,45 @@ spmat_list_add_row(matrix_t *mat, const double *row, int i)
         goto l_cleanup;
     }
 
-    if (!SPMAT_LIST_IS_VALID_ROW_INDEX(mat, i)) {
+    if (!SPMAT_LIST_IS_VALID_ROW_INDEX(mat, row_index)) {
         result = E__INVALID_ROW_INDEX;
         goto l_cleanup;
     }
 
-    rows = (node_t **)mat->private;
+    rows_array = GET_ROWS_ARRAY(mat);
 
     /* 2. Destory current row value */
-    if (NULL != rows[i]) {
-        LIST_NODE_destroy(rows[i]);
-        rows[i] = NULL;
+    if (NULL != GET_ROW(mat, row_index)) {
+        LIST_NODE_destroy(GET_ROW(mat, row_index));
+        rows_array->rows[row_index].begin = NULL;
+        rows_array->rows[row_index].sum = 0;
     }
 
     /* 3. Create a new row */
-    for (column = 0 ; mat->n > column ; ++column) {
-        if (0 != row[column]) {
+    for (i = 0 ; mat->n > i ; ++i) {
+        if (0 != row[i]) {
             /* 3.1. Found a non-zero value, create a node for it */
-            result = LIST_NODE_create(row[column], column, &new_row_current);
+            result = LIST_NODE_create(row[i], i, &new_row_current);
             if (E__SUCCESS != result) {
                 goto l_cleanup;
             }
             
             /* 3.2.1. Is this the first node in the row? */
             if (NULL == new_row_end) {
-                rows[i] = new_row_current;
+                rows_array->rows[row_index].begin = new_row_current;
             } else {
                 new_row_end->next = new_row_current;
             }
             new_row_end = new_row_current;
+            rows_array->rows[row_index].sum += row[i];
         }
     }
 
     result = E__SUCCESS;
 l_cleanup:
     if (E__SUCCESS != result) {
-        LIST_NODE_destroy(rows[i]);
-        rows[i] = NULL;
+        LIST_NODE_destroy(rows_array->rows[row_index].begin);
+        rows_array->rows[row_index].begin = NULL;
     }
 
     return;
@@ -203,7 +224,7 @@ void
 spmat_list_mult(const matrix_t *mat, const double *v, double *multiplication_result)
 {
     result_t result = E__UNKNOWN;
-    node_t **rows = NULL;
+    spmat_rows_t *rows_array = NULL;
     int i = 0;
 
     if ((NULL == mat) || (NULL == v) || (NULL == multiplication_result)) {
@@ -212,9 +233,9 @@ spmat_list_mult(const matrix_t *mat, const double *v, double *multiplication_res
         goto l_cleanup;
     }
 
-    rows = (node_t **)mat->private;
+    rows_array = GET_ROWS_ARRAY(mat);
     for (i = 0 ; i < mat->n ; ++i) {
-        multiplication_result[i] = LIST_NODE_scalar_multiply(rows[i], v);
+        multiplication_result[i] = LIST_NODE_scalar_multiply(rows_array[i]->begin, v);
     }
 
     result = E__SUCCESS;

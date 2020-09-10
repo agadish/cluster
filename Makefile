@@ -1,8 +1,8 @@
 GCC=/usr/bin/gcc
 CFLAGS=-ansi -Wall -Wextra -Werror -pedantic-errors
 DEBUG_FLAGS=-O0 -g
-SOURCES=$(wildcard *.c)
-# SOURCES=$(filter-out adjacency_matrix.c, $(wildcard *.c))
+# SOURCES=$(wildcard *.c)
+SOURCES=$(filter-out adjacency_matrix.c, $(wildcard *.c))
 OBJECTS=$(SOURCES:.c=.o)
 LIBS=m
 LIBFLAGS=$(addprefix -l, $(LIBS))
