@@ -49,6 +49,9 @@ LIST_NODE_destroy(node_t *row);
 double
 LIST_NODE_scalar_multiply(node_t *row, const double *v);
 
+result_t
+LIST_NODE_append(node_t **last_node, double value, int index);
+
 
 #endif /* __LIST_NODE_H__ */
 

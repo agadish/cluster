@@ -21,8 +21,7 @@ result_t
 SPMAT_LIST_divide_matrix(const matrix_t *matrix,
                          const double * vector_s,
                          matrix_t **matrix1_out,
-                         matrix_t **matrix2_out,
-                         size_t ones_count);
+                         matrix_t **matrix2_out);
 
 
 

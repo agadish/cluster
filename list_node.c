@@ -63,3 +63,40 @@ LIST_NODE_scalar_multiply(node_t *row, const double *v)
 
     return multiplication;
 }
+
+
+result_t
+LIST_NODE_append(node_t **last_node, double value, int index)
+{
+    result_t result = E__UNKNOWN;
+    node_t *new_last_node = NULL;
+
+    if (NULL == last_node)
+    {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    result = LIST_NODE_create(value, index, &new_last_node);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* Append the new node */
+    if (NULL != (*last_node)) {
+        /* First node in list */
+        (*last_node)->next = new_last_node;
+    }
+
+    *last_node = new_last_node;
+    result = E__SUCCESS;
+l_cleanup:
+
+    if (E__SUCCESS != result) {
+        LIST_NODE_destroy(new_last_node);
+        new_last_node = NULL;
+    }
+
+    return result;
+}
+

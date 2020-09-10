@@ -174,12 +174,22 @@ CLUSTER_divide(matrix_t *input,
 
     /* 8. Generate divised group */
     /* If we are here the netwrk is divisible */
-
-    /* Im not sure vectors is the right representations of the groups ??? */
+    result = SPMAT_LIST_divide_matrix(input, s_vector, group1, group2);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
 
 
 l_cleanup:
     if (E__SUCCESS != result) {
+        if (NULL != matrix1) {
+            MATRIX_FREE(matrix1);
+            matrix1 = NULL;
+        }
+        if (NULL != matrix2) {
+            MATRIX_FREE(matrix2);
+            matrix2 = NULL;
+        }
     }
     FREE_SAFE(b_vector);
     FREE_SAFE(bs);
