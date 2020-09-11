@@ -17,9 +17,18 @@
 #include "results.h"
 #include "vector.h"
 #include "spmat_list.h"
+#include "adjacency_matrix.h"
+
+/* Enums *****************************************************************************************/
+enum clsuter_args_e {
+    ARG_PROGRAM_NAME,
+    ARG_INPUT_ADJACENCY,
+    ARG_OUTPUT_GRAPH,
+    ARG_COUNT
+};
 
 
-/* Functions Declarations ***********************************************************************/
+/* Functions Declarations ************************************************************************/
 static
 result_t
 cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
@@ -27,7 +36,8 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
         double *eigen_value_out);
 
 
-/* Functions ************************************************************************************/
+
+/* Functions *************************************************************************************/
 static
 result_t
 cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
@@ -190,14 +200,8 @@ CLUSTER_divide(matrix_t *input,
 
 l_cleanup:
     if (E__SUCCESS != result) {
-        if (NULL != group1) {
-            MATRIX_FREE(group1);
-            group1 = NULL;
-        }
-        if (NULL != group2) {
-            MATRIX_FREE(group2);
-            group2 = NULL;
-        }
+        MATRIX_FREE_SAFE(group1);
+        MATRIX_FREE_SAFE(group2);
     }
     FREE_SAFE(b_vector);
     FREE_SAFE(bs);
@@ -206,3 +210,50 @@ l_cleanup:
     return result;
 }
 
+int main(int argc, const char * argv[])
+{
+    result_t result = E__UNKNOWN;
+    adjacency_matrix_t *adj_matrix = NULL;
+    matrix_t *mod_matrix = NULL;
+    matrix_t *group1 = NULL;
+    matrix_t *group2 = NULL;
+
+    /* 1. Input validation */
+    if (ARG_COUNT != argc) {
+        (void)fprintf(stderr, "Usage: %s INPUT_ADJACENCY OUTPUT_MATRICES\n", argv[0]);
+        result = E__INVALID_CMDLINE_ARGS;
+        goto l_cleanup;
+    }
+
+    /* 2. Open adjacency matrix */
+    result = ADJACENCY_MATRIX_open(argv[ARG_INPUT_ADJACENCY], &adj_matrix);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* 3. Calculate modularity matrix */
+    result = ADJACENCY_MATRIX_calculate_modularity(adj_matrix,
+                                                   MATRIX_TYPE_SPMAT_LIST,
+                                                   &mod_matrix);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+
+    /* 4. Divide */
+    result = CLUSTER_divide(mod_matrix, &group1, &group2);
+    if (E__SUCCESS != result) {
+    }
+
+
+    result = E__SUCCESS;
+l_cleanup:
+    if (NULL != adj_matrix) {
+        ADJACENCY_MATRIX_free(adj_matrix);
+        adj_matrix = NULL;
+    }
+
+    MATRIX_FREE_SAFE(mod_matrix);
+
+    return (int)result;
+}

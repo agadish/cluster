@@ -20,6 +20,13 @@
 #define MATRIX_IS_VALID_ROW_INDEX(A, i) (((A)->n > (i)) && (0 <= (i)))
 
 #define MATRIX_FREE(m) ((m)->free((m)))
+#define MATRIX_FREE_SAFE(m) do {                            \
+    if (NULL != (m)) {                                      \
+        (m)->free((m));                                     \
+        (m) = NULL;                                         \
+    }                                                       \
+} while (0)
+
 #define MATRIX_ADD_ROW(m, row, i) ((m)->add_row((m), (row), (i)))
 
 
@@ -57,7 +64,7 @@ typedef void (*matrix_mult_f)(const matrix_t *matrix, const double *vector, doub
 /* Structs ***************************************************************************************/
 /* A square matrix implementation */
 struct matrix_s {
-	int	n; /* Matrix size (n*n) */
+    int n; /* Matrix size (n*n) */
     matrix_type_t type;
     matrix_add_row_f add_row;
 #if 0
@@ -66,7 +73,7 @@ struct matrix_s {
     matrix_free_f free;
     matrix_mult_f mult; /* Multiple the matrix with a column vector */
     matrix_mult_f rmult; /* Multiple a line vector with the matrix */
-	void *private;
+    void *private;
 };
 
 
@@ -88,6 +95,7 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out);
  */
 result_t
 MATRIX_random_vector(const int length, double ** vector_out);
+
 
 #ifdef NEED_COL_VECTOR_TRANSPOSE
 /*

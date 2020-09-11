@@ -468,14 +468,8 @@ l_cleanup:
     FREE_SAFE(s_indexes);
 
     if (E__SUCCESS != result) {
-        if (NULL != matrix1) {
-            MATRIX_FREE(matrix1);
-            matrix1 = NULL;
-        }
-        if (NULL != matrix2) {
-            MATRIX_FREE(matrix2);
-            matrix2 = NULL;
-        }
+        MATRIX_FREE_SAFE(matrix1);
+        MATRIX_FREE_SAFE(matrix2);
     }
 
     return result;

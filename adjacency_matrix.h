@@ -9,6 +9,7 @@
 /* Includes **************************************************************************************/
 #include "results.h"
 #include "common.h"
+#include "matrix.h"
 
 
 /* Macros ****************************************************************************************/
@@ -58,7 +59,9 @@ ADJACENCY_MATRIX_free(adjacency_matrix_t *adjacency_matrix);
  * @purpose Calculate the modularity matrix of a given adjacency matrix
  */
 result_t
-ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj, matrix_t **mod_matrix_out);
+ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
+                                      matrix_type_t mod_matrix_type,
+                                      matrix_t **mod_matrix_out);
 
 
 #endif /* __ADJACENCY_MATRIX_H__ */
