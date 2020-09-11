@@ -82,13 +82,14 @@ LIST_NODE_append(node_t **last_node, double value, int index)
         goto l_cleanup;
     }
 
-    /* Append the new node */
+    /* Set as the last node's next, if exists */
     if (NULL != (*last_node)) {
         /* First node in list */
         (*last_node)->next = new_last_node;
     }
 
     *last_node = new_last_node;
+
     result = E__SUCCESS;
 l_cleanup:
 

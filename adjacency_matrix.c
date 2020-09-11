@@ -13,6 +13,8 @@
 #include "matrix.h"
 #include "common.h"
 #include "adjacency_matrix.h"
+#include "config.h"
+#include "matrix_raw.h"
 
 
 /* Functions Declarations ***********************************************************************/
@@ -20,14 +22,18 @@
  *
  */
 static result_t
-adjacency_matrix_read_neighbors_line(FILE * file, adjacency_matrix_t *matrix, int line_index);
+adjacency_matrix_read_neighbors_line(FILE * file,
+                                     adjacency_matrix_t *matrix,
+                                     int line_index,
+                                     double *tmp_buffer);
 
 
 /* Functions ************************************************************************************/
 static result_t
-adjacency_matrix_read_neighbors_line(FILE * file,
+adjacency_matrix_read_neighbors_line(FILE *file,
                                      adjacency_matrix_t *adj_matrix,
-                                     int line_index)
+                                     int line_index,
+                                     double *tmp_neighbors_buffer)
 {
     result_t result = E__UNKNOWN;
     size_t result_fread = 0;
@@ -42,8 +48,8 @@ adjacency_matrix_read_neighbors_line(FILE * file,
         goto l_cleanup;
     }
 
-    /* 2. Define the (i,i) as 0 */
-    MATRIX_AT(adj_matrix->matrix, line_index, line_index) = 0;
+    /* 2. Zero the neighbors buffer */
+    memset(tmp_neighbors_buffer, 0, adj_matrix->matrix->n);
 
     /* 3. Read all edges */
     for (i = 0 ; i < number_of_edges ; ++i) {
@@ -59,8 +65,15 @@ adjacency_matrix_read_neighbors_line(FILE * file,
         adj_matrix->M += number_of_edges;
 
         /* 3.3. Assign 1 to edge */
-        MATRIX_AT(adj_matrix->matrix, line_index, current_edge) = 1.0;
+        tmp_neighbors_buffer[current_edge] = 1.0;
     }
+
+    /* 4. Set row in matrix */
+    result = MATRIX_ADD_ROW(adj_matrix->matrix, tmp_neighbors_buffer, line_index);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+    
 
     result = E__SUCCESS;
 l_cleanup:
@@ -72,10 +85,11 @@ result_t
 ADJACENCY_MATRIX_open(const char * path, adjacency_matrix_t **matrix_out)
 {
     result_t result = E__UNKNOWN;
-    adjacency_matrix_t * matrix = NULL;
+    adjacency_matrix_t *matrix = NULL;
     int matrix_n = 0 ;
-    FILE * file = NULL;
+    FILE *file = NULL;
     size_t result_fread = 0;
+    double *tmp_neighbors_buffer = NULL;
     int i = 0;
 
     /* 1. Allocate adj matrix */
@@ -100,9 +114,9 @@ ADJACENCY_MATRIX_open(const char * path, adjacency_matrix_t **matrix_out)
         goto l_cleanup;
     }
 
-    /* 4. Allocations matrix */
+    /* 4. Allocations */
     /* 4.1. Allocate matrix */
-    result = MATRIX_allocate(matrix_n, matrix_n, &matrix->matrix);
+    result = MATRIX_create_matrix(matrix_n, ADJ_MATRIX_TYPE, &matrix->matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -115,8 +129,15 @@ ADJACENCY_MATRIX_open(const char * path, adjacency_matrix_t **matrix_out)
     }
 
     /* 5. Initialize each line */
+    /* 5.1. Allocate temporary neighbors buffer */
+    tmp_neighbors_buffer = (double *)malloc(sizeof(*tmp_neighbors_buffer) * matrix_n);
+    if (NULL == tmp_neighbors_buffer) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
     for (i = 0 ; i < matrix_n ; ++i) {
-        result = adjacency_matrix_read_neighbors_line(file, matrix, i);
+        result = adjacency_matrix_read_neighbors_line(file, matrix, i, tmp_neighbors_buffer);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
@@ -131,6 +152,7 @@ l_cleanup:
         ADJACENCY_MATRIX_free(matrix);
     }
     FCLOSE_SAFE(file);
+    FREE_SAFE(tmp_neighbors_buffer);
 
     return result;
 }
@@ -139,7 +161,7 @@ void
 ADJACENCY_MATRIX_free(adjacency_matrix_t *adjacency_matrix)
 {
     if (NULL != adjacency_matrix) {
-        MATRIX_free(adjacency_matrix->matrix);
+        MATRIX_FREE(adjacency_matrix->matrix);
         adjacency_matrix->matrix = NULL;
 
         FREE_SAFE(adjacency_matrix->neighbors);
@@ -165,17 +187,19 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj, matrix_t **mod_ma
     }
 
     /* 1. Allocate modulation matrix */
-    result = MATRIX_allocate(adj->matrix->header.rows, adj->matrix->header.columns, &mod_matrix);
+    result = MATRIX_create_matrix(adj->matrix->n,
+                                  MATRIX_TYPE_RAW,
+                                  &mod_matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
     /* 2. Calculate each cell */
-    for (row = 0 ; row < adj->matrix->header.rows ; ++row) {
-        for (col = 0 ; col < adj->matrix->header.columns ; ++col) {
+    for (row = 0 ; row < adj->matrix->n ; ++row) {
+        for (col = 0 ; col < adj->matrix->n ; ++col) {
             expected_edges = (adj->neighbors[row] * adj->neighbors[col]) / adj->M;
-            b_value = MATRIX_AT(adj->matrix, row, col) - expected_edges;
-            MATRIX_AT(mod_matrix, row, col) = b_value;
+            b_value = MATRIX_RAW_AT(adj->matrix, row, col) - expected_edges;
+            MATRIX_RAW_AT(mod_matrix, row, col) = b_value;
         }
     }
 
@@ -185,7 +209,7 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj, matrix_t **mod_ma
     result = E__SUCCESS;
 l_cleanup:
     if (E__SUCCESS != result) {
-        MATRIX_free(mod_matrix);
+        MATRIX_FREE(mod_matrix);
         mod_matrix = NULL;
     }
 

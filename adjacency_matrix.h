@@ -1,6 +1,7 @@
 /**
  * @file adjacency_matrix.h
- * @purpose Reprent a adjacency_matrix data structure, implement mathematical operations and de/serialization
+ * @purpose Reprent a adjacency_matrix data structure.
+ *          Implement mathematical operations and de/serialization
  */
 #ifndef __ADJACENCY_MATRIX_H__
 #define __ADJACENCY_MATRIX_H__
@@ -15,7 +16,12 @@
 
 
 /* Structs ***************************************************************************************/
-/* The adjacency_matrix dimensions and data */
+/**
+ * @brief The adjacency_matrix dimensions and data
+ * @param matrix The matrix
+ * @param neighbors Mapping array from vertice index to its neighbors count
+ * @param M The total neighbors count (equals edges count times 2)
+ */
 typedef struct adjacency_matrix_s {
     matrix_t *matrix;
     int *neighbors;

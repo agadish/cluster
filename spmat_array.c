@@ -28,7 +28,7 @@ typedef struct spmat_array_s {
 
 /* Functions Declarations ************************************************************************/
 static
-void
+result_t
 spmat_array_add_row(matrix_t *A, const double *row, int i);
 
 static
@@ -134,9 +134,10 @@ spmat_array_free(matrix_t *mat)
 }
 
 static
-void
-spmat_array_add_row(matrix_t *mat, const double *row, int i)
+result_t
+spmat_array_add_row(matrix_t *mat, const double *data, int row_index)
 {
+    result_t result = E__UNKNOWN;
     bool_t first_found = FALSE;
     int j, n;
     int k;
@@ -145,6 +146,17 @@ spmat_array_add_row(matrix_t *mat, const double *row, int i)
     double *values;
     int *colind, *rowptr;
 
+    /* 0. Input validation */
+    if ((NULL == mat) || (NULL == mat->private) || (NULL == data)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    if (!MATRIX_IS_VALID_ROW_INDEX(mat, row_index)) {
+        result = E__INVALID_ROW_INDEX;
+        goto l_cleanup;
+    }
+
     spmat_array_data = (spmat_array_t *)mat->private;
     n = mat->n;
     values = spmat_array_data->values;
@@ -152,11 +164,11 @@ spmat_array_add_row(matrix_t *mat, const double *row, int i)
     rowptr = spmat_array_data->rowptr;
 
     for (j = 0; j < n; ++j) {
-        number = row[j];
+        number = data[j];
         if (0 != number) {
             if (FALSE == first_found) {
                 first_found = TRUE;
-                for (k = i; ((k >= 0) && (rowptr[k] == rowptr[n])) ; --k) {
+                for (k = row_index; ((k >= 0) && (rowptr[k] == rowptr[n])) ; --k) {
                     rowptr[k] = spmat_array_data->last_index;
                 }
             }
@@ -165,6 +177,11 @@ spmat_array_add_row(matrix_t *mat, const double *row, int i)
             ++spmat_array_data->last_index;
         }
     }
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
 }
 
 static

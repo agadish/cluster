@@ -34,7 +34,7 @@ void
 matrix_raw_free(matrix_t * matrix);
 
 static
-void
+result_t
 matrix_raw_add_row(matrix_t *mat, const double *row, int i);
 
 /**
@@ -168,7 +168,7 @@ matrix_raw_vector_mat_multiply(const matrix_t *matrix,
 
 
 static
-void
+result_t
 matrix_raw_add_row(matrix_t *mat, const double *row, int i)
 {
     result_t result = E__UNKNOWN;
@@ -181,7 +181,7 @@ matrix_raw_add_row(matrix_t *mat, const double *row, int i)
 
     }
 
-    if (!SPMAT_IS_VALID_ROW_INDEX(mat, i)) {
+    if (!MATRIX_IS_VALID_ROW_INDEX(mat, i)) {
         result = E__INVALID_ROW_INDEX;
         goto l_cleanup;
     }
@@ -191,8 +191,7 @@ matrix_raw_add_row(matrix_t *mat, const double *row, int i)
 
     result = E__SUCCESS;
 l_cleanup:
-    (void)result;
 
-    return;
+    return result;
 } 
 
