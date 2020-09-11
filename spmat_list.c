@@ -14,29 +14,23 @@
 
 
 /* Structs ***************************************************************************************/
+/* spmat_row_t * matrix->private: n-sized array of spmat_row_t */
 typedef struct spmat_row_s {
-    /* n-sized array of linked lists */
+    /* Begin of row's linked list */
     node_t *begin;
-    int sum;
+    double sum;
 } spmat_row_t;
-
-typedef struct spmat_list_s {
-    /* n-sized array of linked lists */
-    spmat_row_t *rows;
-} spmat_rows_array_t;
 
 
 /* Macros ****************************************************************************************/
-#define SPMAT_LIST_IS_VALID_ROW_INDEX(A, i) (((A)->n > i) && (0 <= i))
+#define GET_ROWS_ARRAY(list) ((spmat_row_t *)((list)->private))
 
-#define GET_ROWS_ARRAY(list) ((spmat_rows_array_t *)((list)->private))
-
-#define GET_ROW(list, row_index) (GET_ROWS_ARRAY(list)->rows[(row_index)].begin)
+#define GET_ROW(list, row_index) (GET_ROWS_ARRAY(list)[row_index])
 
 
 /* Functions Declarations ************************************************************************/
 static
-void
+result_t
 spmat_list_add_row(matrix_t *A, const double *row, int i);
 
 static
@@ -58,15 +52,15 @@ spmat_list_create_s_indexes(const double * vector_s,
                             int *matrix1_n_out);
 static
 result_t
-spmat_list_reduce_row(const node_t *original_row,
+spmat_list_reduce_row(const spmat_row_t *original_row,
                        const double * vector_s,
                        double relevant_vector_s_value,
                        const int * s_indexes,
-                       node_t **row_out);
+                       spmat_row_t *row_out);
 
 static
-void
-spmat_list_free_row(spmat_row_t *row);
+result_t
+spmat_list_init_row(spmat_row_t *row, const double *data, int data_length);
 
 
 /* Functions *************************************************************************************/
@@ -74,9 +68,8 @@ result_t
 SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 {
     result_t result = E__UNKNOWN;
-
-    matrix_t * mat = NULL;
-    spmat_rows_array_t *rows_array = NULL;
+    matrix_t *mat = NULL;
+    spmat_row_t *rows_array = NULL;
     int rows_array_size = 0;
 
     /* 0. Input validation */
@@ -105,24 +98,16 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     mat->mult = spmat_list_mult;
     /* TODO: Implement */
     mat->rmult = NULL;
-
     mat->private = NULL;
 
-    /* 3. Allocate private rows_array */
-    rows_array = (spmat_rows_array_t *)malloc(sizeof(*rows_array));
+    /* 3. Rows array */
+    rows_array_size = n * sizeof(*rows_array);
+    rows_array = (spmat_row_t *)malloc(rows_array_size);
     if (NULL == rows_array) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
-
-    /* 3. Rows array */
-    rows_array_size = n * sizeof(*(rows_array->rows));
-    rows_array->rows = (spmat_row_t *)malloc(rows_array_size);
-    if (NULL == rows_array->rows) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
-    (void)memset(rows_array->rows, 0, rows_array_size);
+    (void)memset(rows_array, 0, rows_array_size);
     mat->private = (void *)rows_array;
 
     /* Success */
@@ -130,6 +115,7 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 
     result = E__SUCCESS;
 l_cleanup:
+
     if (E__SUCCESS != result) {
         spmat_list_free(mat);
         mat = NULL;
@@ -142,16 +128,17 @@ static
 void
 spmat_list_free(matrix_t *mat)
 {
-    spmat_rows_array_t *rows_array = NULL;
+    spmat_row_t *rows_array = NULL;
     int i = 0;
 
     if (NULL != mat) {
         rows_array = GET_ROWS_ARRAY(mat);
         if (NULL != rows_array) {
             for (i = 0 ; i < mat->n ; ++i) {
-                LIST_NODE_destroy(rows_array->rows[i].begin);
-                rows_array->rows[i].begin = NULL;
+                LIST_NODE_destroy(rows_array[i].begin);
+                rows_array[i].begin = NULL;
             }
+
             FREE_SAFE(rows_array);
             mat->private = NULL;
         }
@@ -159,72 +146,92 @@ spmat_list_free(matrix_t *mat)
     }
 }
 
-void
-spmat_list_add_row(matrix_t *mat, const double *row, int row_index)
+result_t
+spmat_list_add_row(matrix_t *mat, const double *data, int row_index)
 {
     result_t result = E__UNKNOWN;
-
-    node_t *new_row_end = NULL;
-    node_t *new_row_current = NULL;
-    int i = 0;
-    spmat_rows_array_t *rows_array = NULL;
+    spmat_row_t *rows_array = NULL;
 
     /* 1. Input validation */
-    if ((NULL == mat) || (NULL == mat->private) || (NULL == row)) {
+    if ((NULL == mat) || (NULL == mat->private) || (NULL == data)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
 
-    if (!SPMAT_LIST_IS_VALID_ROW_INDEX(mat, row_index)) {
+    if (!MATRIX_IS_VALID_ROW_INDEX(mat, row_index)) {
         result = E__INVALID_ROW_INDEX;
         goto l_cleanup;
     }
 
     rows_array = GET_ROWS_ARRAY(mat);
 
-    /* 2. Destory current row value */
-    if (NULL != GET_ROW(mat, row_index)) {
-        LIST_NODE_destroy(GET_ROW(mat, row_index));
-        rows_array->rows[row_index].begin = NULL;
-        rows_array->rows[row_index].sum = 0;
+    /* 2. Destory current row data */
+    if (NULL != rows_array[row_index].begin) {
+        LIST_NODE_destroy(rows_array[row_index].begin);
+        rows_array[row_index].begin = NULL;
+        rows_array[row_index].sum = 0;
     }
 
+    /* 3. Initialise row with new data */
+    result = spmat_list_init_row(&rows_array[row_index], data, mat->n);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+} 
+
+static
+result_t
+spmat_list_init_row(spmat_row_t *row, const double *data, int data_length)
+{
+    result_t result = E__UNKNOWN;
+    int i = 0;
+    node_t *last_node = NULL;
+    node_t *current_node = NULL;
+
     /* 3. Create a new row */
-    for (i = 0 ; mat->n > i ; ++i) {
-        if (0 != row[i]) {
+    for (i = 0 ; data_length > i ; ++i) {
+        if (0 != data[i]) {
             /* 3.1. Found a non-zero value, create a node for it */
-            result = LIST_NODE_create(row[i], i, &new_row_current);
+            result = LIST_NODE_create(data[i], i, &current_node);
             if (E__SUCCESS != result) {
                 goto l_cleanup;
             }
             
-            /* 3.2.1. Is this the first node in the row? */
-            if (NULL == new_row_end) {
-                rows_array->rows[row_index].begin = new_row_current;
+            /* 3.2. Link with last node */
+            if (NULL == last_node) {
+                /* 3.2.1. This node is the beginning of the row */
+                row->begin = current_node;
             } else {
-                new_row_end->next = new_row_current;
+                /* 3.2.2. Link to last node */
+                last_node->next = current_node;
             }
-            new_row_end = new_row_current;
-            rows_array->rows[row_index].sum += row[i];
+            /* 3.2.1. Is this the first node in the row? */
+            last_node = current_node;
+            row->sum += data[i];
         }
     }
 
     result = E__SUCCESS;
 l_cleanup:
-    if (E__SUCCESS != result) {
-        LIST_NODE_destroy(rows_array->rows[row_index].begin);
-        rows_array->rows[row_index].begin = NULL;
-    }
 
-    return;
-} 
+    if (E__SUCCESS != result) {
+        LIST_NODE_destroy(row->begin);
+        row->begin = NULL;
+    }
+    return result;
+}
 
 static
 void
 spmat_list_mult(const matrix_t *mat, const double *v, double *multiplication_result)
 {
     result_t result = E__UNKNOWN;
-    spmat_rows_t *rows_array = NULL;
+    spmat_row_t *rows_array = NULL;
     int i = 0;
 
     if ((NULL == mat) || (NULL == v) || (NULL == multiplication_result)) {
@@ -235,13 +242,13 @@ spmat_list_mult(const matrix_t *mat, const double *v, double *multiplication_res
 
     rows_array = GET_ROWS_ARRAY(mat);
     for (i = 0 ; i < mat->n ; ++i) {
-        multiplication_result[i] = LIST_NODE_scalar_multiply(rows_array[i]->begin, v);
+        multiplication_result[i] = LIST_NODE_scalar_multiply(rows_array[i].begin, v);
     }
 
     result = E__SUCCESS;
 l_cleanup:
-    UNUSED_ARG(result);
 
+    UNUSED_ARG(result);
     return;
 }
 
@@ -278,8 +285,10 @@ spmat_list_create_s_indexes(const double * vector_s,
     /* Success */
     *s_indexes_out = s_indexes;
     *matrix1_n_out = index_1;
+
     result = E__SUCCESS;
 l_cleanup:
+
     if (E__SUCCESS != result) {
         FREE_SAFE(s_indexes);
     }
@@ -293,18 +302,19 @@ l_cleanup:
  */
 static
 result_t
-spmat_list_reduce_row(const node_t *original_row,
+spmat_list_reduce_row(const spmat_row_t *original_row,
                        const double * vector_s,
                        double relevant_vector_s_value,
                        const int * s_indexes,
-                       node_t **row_out)
+                       spmat_row_t *row_out)
 {
     result_t result = E__UNKNOWN;
-    const node_t *original_row_scanner = NULL;
-    node_t *row = NULL;
+    const node_t *scanner = NULL;
+    node_t *begin = NULL;
     node_t *row_end = NULL;
     double scanned_s_value = 0.0; /* 1 or -1 */
     int scanned_index = 0.0; /* 0 ... n */
+    double sum = 0.0;
 
     /* 1. Check if original row is zeroes */
     if (NULL == original_row) {
@@ -312,10 +322,10 @@ spmat_list_reduce_row(const node_t *original_row,
         goto l_cleanup;
     }
 
-    /* Go over nodes in the given row */
-    for (original_row_scanner = original_row ;
-            NULL != original_row_scanner ;
-            original_row_scanner = original_row_scanner->next) {
+    /* 2. Go over nodes in the given row */
+    for (scanner = original_row->begin ;
+            NULL != scanner ;
+            scanner = scanner->next) {
         /* We're looking at relevant_value = -1:
          *      V    V  V    V  V
          * 1 1 -1 1 -1 -1 1 -1 -1..... 1
@@ -334,29 +344,36 @@ spmat_list_reduce_row(const node_t *original_row,
          *        [ ind 0 ]     [ ind 1 ]
          *
          */
-        scanned_s_value = vector_s[original_row_scanner->index];
+        scanned_s_value = vector_s[scanner->index];
+        /* 2.1. Skip nodes with different s-value */
         if (scanned_s_value != relevant_vector_s_value) {
             continue;
         }
 
-        scanned_index = s_indexes[original_row_scanner->index];
-        result = LIST_NODE_append(&row_end, original_row_scanner->value, scanned_index);
+        /* 2.2. Append nodes with our s-value to the end of our new row */
+        scanned_index = s_indexes[scanner->index];
+        sum += scanner->value;
+        result = LIST_NODE_append(&row_end, scanner->value, scanned_index);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
 
-        if (NULL == row) {
-            row = row_end;
+        /* 2.3. First node only: set as the row's begin */
+        if (NULL == begin) {
+            begin = row_end;
         }
     }
 
-
     /* Success */
-    *row_out = row;
+    row_out->begin = begin;
+    row_out->sum = sum;
+
     result = E__SUCCESS;
 l_cleanup:
+
     if (E__SUCCESS != result) {
-        LIST_NODE_destroy(row);
+        LIST_NODE_destroy(begin);
+        begin = NULL;
     }
 
     return result;
@@ -376,7 +393,7 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
     double scanned_s_value = 0.0;
     int *s_indexes = NULL;
     int scanned_s_index = 0;
-    node_t **relevant_row_pointer = NULL;
+    spmat_row_t *relevant_row_pointer = NULL;
 
     /* 0. Input validation */
     /* Null arguments */
@@ -431,11 +448,11 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
         }
 
         /* 3.4. Add the filtered values in the row */
-        result = spmat_list_reduce_row(GET_ROW(matrix, i),
-                                        vector_s,
-                                        scanned_s_value,
-                                        s_indexes,
-                                        relevant_row_pointer);
+        result = spmat_list_reduce_row(&GET_ROW(matrix, i),
+                                       vector_s,
+                                       scanned_s_value,
+                                       s_indexes,
+                                       relevant_row_pointer);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
