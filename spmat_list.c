@@ -62,7 +62,6 @@ static
 result_t
 spmat_list_init_row(spmat_row_t *row, const double *data, int data_length);
 
-
 /* Functions *************************************************************************************/
 result_t
 SPMAT_LIST_allocate(int n, matrix_t **mat_out)
@@ -479,5 +478,46 @@ l_cleanup:
     }
 
     return result;
+}
+
+void
+SPMAT_LIST_print(matrix_t **mat_in){
+	spmat_row_t *relevant_row_pointer = NULL;
+    const node_t *scanner = NULL;
+	int length = 0;
+	int row = 0;
+	int col = 0;
+	int last_scanner_index = 0;
+
+    if (NULL != mat) {
+        length = mat_in->n;
+        if (NULL != rows_array) {
+        	printf("MATRIX");
+        	for (row = 0; row < n; row++){
+        		col = 0;
+        		last_scanner_index = 0;
+        		relevant_row_pointer = &GET_ROW((*mat_in), row);
+        		printf("||");
+        	    for (scanner = relevant_row_pointer->begin ;
+        	            NULL != scanner ;
+        	            scanner = scanner->next) {
+
+        	    	while (scanner->index > col){
+        	    		printf(" 0 ,");
+        	    	}
+
+        	    	printf(" %lf ,", scanner-> value );
+        	    	col++;
+
+        	    	if (NULL != scanner){ last_scanner_index = scanner->index; }
+
+        	    }
+
+        	    while (last_scanner_index < length) { printf(" 0 ,"); }
+        	    printf("|| \n");
+        	}
+        }
+    }
+
 }
 
