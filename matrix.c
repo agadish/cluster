@@ -53,7 +53,7 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out)
         }
         break;
     case MATRIX_TYPE_RAW:
-        result = MATRIX_RAW_allocate(n, n, &mat);
+        result = MATRIX_RAW_allocate(n, &mat);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
@@ -62,8 +62,6 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out)
         result = E__UNKNOWN_MATRIX_IMPLEMNTATION;
         goto l_cleanup;
     }
-
-    mat->type = type;
 
 #if 0
     /* 3. Read input into the spmat */

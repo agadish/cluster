@@ -17,18 +17,30 @@
 #include "results.h"
 #include "vector.h"
 #include "spmat_list.h"
+#include "debug.h"
 
 
-/* Functions Declarations ***********************************************************************/
-static
+/* Functions Declarations ************************************************************************/
+/**
+ * @purpose finding leading eigenvalue of Sparse Matrix
+ * @param leading_vector The input leading eigenvector
+ * @param prev_vector previous candidate for leading eigenvector from Power Iterations
+ * @param eigen_value The calculated leading eigenvalue (output)
+ *
+ * @return One of result_t values
+ *
+ * @remark The returned eigen must be freed using MATRIX_free
+ */
+STATIC
 result_t
 cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
-        const double *eigen_vector,
-        double *eigen_value_out);
+                                     const double *eigen_vector,
+                                     double *eigen_value_out);
 
 
-/* Functions ************************************************************************************/
-static
+
+/* Functions *************************************************************************************/
+STATIC
 result_t
 cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
         const double *eigen_vector,
@@ -190,16 +202,11 @@ CLUSTER_divide(matrix_t *input,
 
 l_cleanup:
     if (E__SUCCESS != result) {
-        if (NULL != group1) {
-            MATRIX_FREE(group1);
-            group1 = NULL;
-        }
-        if (NULL != group2) {
-            MATRIX_FREE(group2);
-            group2 = NULL;
-        }
+        MATRIX_FREE_SAFE(group1);
+        MATRIX_FREE_SAFE(group2);
     }
     FREE_SAFE(b_vector);
+    FREE_SAFE(leading_eigen);
     FREE_SAFE(bs);
     FREE_SAFE(s_vector);
 
