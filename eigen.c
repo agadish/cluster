@@ -37,7 +37,7 @@ MATRIX_calculate_eigen(const matrix_t *input,
     /* 1. Allocate vectors */
     /* 1.1. Create two vectors: for result, and previous result */
     prev_vector_res = (double *)malloc(sizeof(*prev_vector_res) * input->n);
-    if (NULL == vector_res) {
+    if (NULL == prev_vector_res) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }

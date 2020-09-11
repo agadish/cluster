@@ -233,7 +233,7 @@ int main(int argc, const char * argv[])
 
     /* 3. Calculate modularity matrix */
     result = ADJACENCY_MATRIX_calculate_modularity(adj_matrix,
-                                                   MATRIX_TYPE_SPMAT_LIST,
+                                                   MATRIX_TYPE_RAW,
                                                    &mod_matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;

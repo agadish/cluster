@@ -48,23 +48,24 @@ adjacency_matrix_read_neighbors_line(FILE *file,
         goto l_cleanup;
     }
 
-    /* 2. Zero the neighbors buffer */
-    memset(tmp_neighbors_buffer, 0, adj_matrix->matrix->n);
 
-    /* 3. Read all edges */
+    /* 2. Save number of neighbors */
+    adj_matrix->neighbors[line_index] = number_of_edges;
+    adj_matrix->M += number_of_edges;
+
+    /* 3. Zero the neighbors buffer */
+    memset(tmp_neighbors_buffer, 0, sizeof(*tmp_neighbors_buffer) * adj_matrix->matrix->n);
+
+    /* 4. Read all edges */
     for (i = 0 ; i < number_of_edges ; ++i) {
-        /* 3.1. Read current edge */
+        /* 4.1. Read current edge */
         result_fread = fread((void *)&current_edge, 1, sizeof(current_edge), file);
         if (1 > result_fread) {
             result = E__FREAD_ERROR;
             goto l_cleanup;
         }
 
-        /* 3.2. Save number of neighbors */
-        adj_matrix->neighbors[line_index] = number_of_edges;
-        adj_matrix->M += number_of_edges;
-
-        /* 3.3. Assign 1 to edge */
+        /* 4.2. Assign 1 to edge */
         tmp_neighbors_buffer[current_edge] = 1.0;
     }
 

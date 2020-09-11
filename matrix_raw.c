@@ -93,7 +93,7 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
     }
 
     /* 2. Initialize */
-    (void)memset(&matrix, 0, sizeof(matrix));
+    (void)memset(matrix, 0, sizeof(*matrix));
     matrix->n = n;
     matrix->add_row = matrix_raw_add_row;
     matrix->free = matrix_raw_free;
