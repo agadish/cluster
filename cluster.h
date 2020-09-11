@@ -9,30 +9,13 @@
  /* Includes **************************************************************************************/
 #include "matrix.h"
 #include "common.h"
-#include "eigen.h"
 #include "results.h"
-#include "spmat.h"
 
-/* Macros ****************************************************************************************/
 
-/**
- * @purpose finding leading eigenvalue of Sparse Matrix
- * @param leading_vector The input leading eigenvector
- * @param prev_vector previous candidate for leading eigenvector from Power Iterations
- * @param eigen_value The calculated leading eigenvalue (output)
- *
- * @return One of result_t values
- *
- * @remark The returned eigen must be freed using MATRIX_free
- */
-result_t
-calculate_leading_eigenvalue(matrix_t **leading_vector,
-					   matrix_t **prev_vector
-					   double *eigen_value);
-
+/* Functions Declarations ************************************************************************/
 /**
  * @purpose divide a network to two groups
- * @param input modularity Sparse Matrix
+ * @param input Matrix to divide
  * @param group1 vector representing the first group from division algorithm 1
  * @param group2 vector representing the second group from division algorithm 1
  *
@@ -41,14 +24,9 @@ calculate_leading_eigenvalue(matrix_t **leading_vector,
  * @remark The returned eigen must be freed using MATRIX_free
  */
 result_t
-CLUSTER_divide(spmat *input,
-               matrix_t **group1,
-               matrix_t **group2);
-
-
-
-
-
+CLUSTER_divide(matrix_t *input,
+               matrix_t **group1_out,
+               matrix_t **group2_out);
 
 
 #endif /* __CLUSTER_H__ */
