@@ -73,7 +73,7 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     int rows_array_size = 0;
 
     /* 0. Input validation */
-    if (NULL == mat) {
+    if (NULL == mat_out) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
@@ -91,7 +91,7 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     }
 
     /* 2. Initialize */
-    (void)memset(&mat, 0, sizeof(mat));
+    (void)memset(mat, 0, sizeof(*mat));
     mat->n = n;
     mat->add_row = spmat_list_add_row;
     mat->free = spmat_list_free;
