@@ -16,6 +16,7 @@
 #include "common.h"
 #include "vector.h"
 #include "list_node.h"
+#include "debug.h"
 
 /* Macros ****************************************************************************************/
 #define RAW_ARRAY(matrix) ((double *)((matrix)->private))
@@ -73,6 +74,7 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
 {
     result_t result = E__UNKNOWN;
     matrix_t * matrix = NULL;
+    size_t array_length = 0;
 
     /* 0. Input validation */
     if (NULL == matrix_out) {
@@ -101,7 +103,13 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
     matrix->rmult = matrix_raw_vector_mat_multiply;
 
     /* 3. Allocate data */
-    matrix->private = malloc(sizeof(double) * n * n);
+    array_length = sizeof(double) * n * n;
+    matrix->private = malloc(array_length);
+    /* DEBUG_PRINT("allocating matrix n=%d, size=%lu: addr %p to %p", */
+    /*         n, */
+    /*         array_length, */
+    /*         matrix->private, */
+    /*         (void *)((uint8_t* )matrix->private + array_length)); */
     if (NULL == matrix->private) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;

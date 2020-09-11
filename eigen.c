@@ -64,7 +64,9 @@ MATRIX_calculate_eigen(const matrix_t *input,
     result = E__SUCCESS;
 
 l_cleanup:
-    FREE_SAFE(prev_vector_res);
+    if (E__SUCCESS != result) {
+        FREE_SAFE(vector_res);
+    }
 
     return result;
 }

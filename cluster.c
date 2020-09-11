@@ -204,6 +204,7 @@ l_cleanup:
         MATRIX_FREE_SAFE(group2);
     }
     FREE_SAFE(b_vector);
+    FREE_SAFE(leading_eigen);
     FREE_SAFE(bs);
     FREE_SAFE(s_vector);
 
@@ -221,6 +222,7 @@ int main(int argc, const char * argv[])
     /* 1. Input validation */
     if (ARG_COUNT != argc) {
         (void)fprintf(stderr, "Usage: %s INPUT_ADJACENCY OUTPUT_MATRICES\n", argv[0]);
+
         result = E__INVALID_CMDLINE_ARGS;
         goto l_cleanup;
     }

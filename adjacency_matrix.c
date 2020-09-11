@@ -15,7 +15,7 @@
 #include "adjacency_matrix.h"
 #include "config.h"
 #include "matrix_raw.h"
-
+#include "debug.h"
 
 /* Functions Declarations ***********************************************************************/
 /*
@@ -83,7 +83,7 @@ l_cleanup:
 }
 
 result_t
-ADJACENCY_MATRIX_open(const char * path, adjacency_matrix_t **matrix_out)
+ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **matrix_out)
 {
     result_t result = E__UNKNOWN;
     adjacency_matrix_t *matrix = NULL;
@@ -117,7 +117,7 @@ ADJACENCY_MATRIX_open(const char * path, adjacency_matrix_t **matrix_out)
 
     /* 4. Allocations */
     /* 4.1. Allocate matrix */
-    result = MATRIX_create_matrix(matrix_n, ADJ_MATRIX_TYPE, &matrix->matrix);
+    result = MATRIX_create_matrix(matrix_n, MATRIX_TYPE_RAW, &matrix->matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -189,7 +189,7 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj, matrix_t **mod_ma
 
     /* 1. Allocate modulation matrix */
     result = MATRIX_create_matrix(adj->matrix->n,
-                                  MATRIX_TYPE_RAW,
+                                  MOD_MATRIX_TYPE,
                                   &mod_matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;
@@ -228,6 +228,7 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
     double expected_edges = 0.0;
     double b_value = 0.0;
     double *current_row = NULL;
+    double tmp = 0.0;
 
     /* 0. Input validation */
     if ((NULL == adj) || (NULL == mod_matrix_out)) {
@@ -256,7 +257,12 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
         /* 2.2.1. Calculate each column */
         for (col = 0 ; col < adj->matrix->n ; ++col) {
             expected_edges = (adj->neighbors[row] * adj->neighbors[col]) / adj->M;
-            b_value = MATRIX_RAW_AT(adj->matrix, row, col) - expected_edges;
+            /* DEBUG_PRINT("getting matrix at %d,%d (addr=%p)", */
+            /*         row, */
+            /*         col, */
+            /*         (void *)&(MATRIX_RAW_AT(adj->matrix, row, col))); */
+            tmp = MATRIX_RAW_AT(adj->matrix, row, col);
+            b_value = tmp - expected_edges;
             current_row[col] = b_value;
         }
 
