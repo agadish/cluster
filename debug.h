@@ -14,9 +14,8 @@
     (void)fprintf(stderr, __VA_ARGS__);                                     \
     (void)fprintf(stderr, "\n");                                            \
 } while (0)
-
 #else
-#define DEBUG_PRINT(message, ...) (void)
+#define DEBUG_PRINT(...) 
 #endif
 
 #ifdef __DEBUG__

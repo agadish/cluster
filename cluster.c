@@ -145,15 +145,21 @@ CLUSTER_divide(matrix_t *input,
         goto l_cleanup;
     }
 
-    /* 4. Generate S vector */
-    /* 4.1. Allocate */
+    /* 4. Calculate S-vector */
+    /* 4.1. Allocate s-vector */
     s_vector = (double *)malloc(sizeof(*s_vector) * input->n);
     if (NULL == s_vector) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    /* 5.1. Calculate */
+    /* 4.2. Normalize leading eigenvector */
+    result = VECTOR_normalize(leading_eigen, input->n);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* 4.1. Calculate s-vector */
     for (i = 0 ; i < input->n; ++i) {
         if (0 < leading_eigen[i]) {
             s_vector[i] = 1;
@@ -163,24 +169,24 @@ CLUSTER_divide(matrix_t *input,
         }
     }
 
-    /* 6. Calculating stbs */
-    /* 6.1. Allocate stbs */
+    /* 5. Calculating stbs */
+    /* 5.1. Allocate stbs */
     bs = (double *)malloc(sizeof(*bs) * input->n);
     if (NULL == bs) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    /* 6.2. Bs: Multiply B with s */
+    /* 5.2. Bs: Multiply B with s */
     input->mult(input, s_vector, bs);
 
-    /* 6.3. sTBs: Multiply s_transposed with Bs */
+    /* 5.3. sTBs: Multiply s_transposed with Bs */
     stbs = VECTOR_scalar_multiply(s_vector, bs, input->n);
 
-    /* 6.4. Free bs */
+    /* 5.4. Free bs */
     FREE_SAFE(bs);
 
-    /* 7. Check divisibility #2 */
+    /* 6. Check divisibility #2 */
     if (0 >= stbs) {
         /* 7.1. Network is indivisable */
         *group1_out = NULL;
@@ -188,7 +194,7 @@ CLUSTER_divide(matrix_t *input,
         return result;
     }
 
-    /* 8. Generate divised group */
+    /* 7. Generate divised group */
     /* If we are here the netwrk is divisible */
     result = SPMAT_LIST_divide_matrix(input, s_vector, &group1, &group2);
     if (E__SUCCESS != result) {
