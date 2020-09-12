@@ -60,9 +60,6 @@ SPMAT_ARRAY_allocate(int n, int nnz, matrix_t **mat_out)
     mat->add_row = spmat_array_add_row;
     mat->free = spmat_array_free;
     mat->mult = spmat_array_mult;
-    /* TODO: Implement */
-    mat->rmult = NULL;
-
     mat->private = NULL;
 
     spmat_array_data = (spmat_array_t *)malloc(sizeof(spmat_array_t));

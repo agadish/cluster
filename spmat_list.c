@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "list_node.h"
 #include "results.h"
@@ -107,8 +108,6 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     mat->add_row = spmat_list_add_row;
     mat->free = spmat_list_free;
     mat->mult = spmat_list_mult;
-    /* TODO: Implement */
-    mat->rmult = NULL;
     mat->private = NULL;
 
     /* 3. spmat struct */
@@ -567,5 +566,36 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
     }
     printf(")\n");
 
+}
+
+result_t
+SPMAT_LIST_get_1norm(const matrix_t *matrix, double *norm_out)
+{
+    result_t result = E__SUCCESS;
+    double norm = 0.0;
+    const spmat_data_t *data = NULL;
+    const double *columns_sum = NULL;
+    int i = 0;
+
+    /* 0. Input validation */
+    if ((NULL == matrix) || (NULL == norm_out)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* Go over all the columns' norms */
+    data = GET_SPMAT_DATA(matrix);
+    columns_sum = data->columns_sum;
+    for (i = 0 ; i < matrix->n ; ++i) {
+        norm = fabs(MAX(norm, columns_sum[i]));
+    }
+
+    /* Success */
+    *norm_out = norm;
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
 }
 

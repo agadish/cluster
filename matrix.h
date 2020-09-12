@@ -72,7 +72,9 @@ struct matrix_s {
 #endif
     matrix_free_f free;
     matrix_mult_f mult; /* Multiple the matrix with a column vector */
+#if 0
     matrix_mult_f rmult; /* Multiple a line vector with the matrix */
+#endif
     void *private;
 };
 
@@ -109,6 +111,9 @@ MATRIX_random_vector(const int length, double ** vector_out);
 result_t
 MATRIX_col_vector_transpose(matrix_t *vector_in, matrix_t **vector_out);
 #endif
+
+result_t
+MATRIX_add_diag(matrix_t *matrix, double onenorm);
 
 
 #endif /* __MATRIX_H__ */

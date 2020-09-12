@@ -37,5 +37,7 @@ typedef uint8_t bool_t;
 
 #define UNUSED_ARG(a) ((void)(a))
 
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 
 #endif /* __COMMON_H__ */

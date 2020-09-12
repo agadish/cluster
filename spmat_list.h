@@ -26,6 +26,9 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
 void
 SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in);
 
+result_t
+SPMAT_LIST_get_1norm(const matrix_t *matrix, double *norm_out);
+
 
 
 #endif /* __SPMAT_LIST_H__ */

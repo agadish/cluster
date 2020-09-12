@@ -60,11 +60,13 @@ matrix_raw_mat_vector_multiply(const matrix_t *matrix,
  *
  * @return One of result_t values
  */
+#if 0
 static
 void
 matrix_raw_vector_mat_multiply(const matrix_t *matrix,
                                const double *vector,
                                double * multiplication);
+#endif /* 0 */
 
 
 
@@ -99,7 +101,7 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
     matrix->add_row = matrix_raw_add_row;
     matrix->free = matrix_raw_free;
     matrix->mult = matrix_raw_mat_vector_multiply;
-    matrix->rmult = matrix_raw_vector_mat_multiply;
+    /* matrix->rmult = matrix_raw_vector_mat_multiply; */
 
     /* 3. Allocate data */
     array_length = sizeof(double) * n * n;
@@ -153,6 +155,7 @@ matrix_raw_mat_vector_multiply(const matrix_t *matrix,
     }
 }
 
+#if 0
 static
 void
 matrix_raw_vector_mat_multiply(const matrix_t *matrix,
@@ -172,7 +175,7 @@ matrix_raw_vector_mat_multiply(const matrix_t *matrix,
         multiplication[column] = column_sum;
     }
 }
-
+#endif /* 0 */
 
 static
 result_t

@@ -135,3 +135,50 @@ l_cleanup:
 }
 #endif
 
+result_t
+MATRIX_add_diag(matrix_t *matrix, double onenorm)
+{
+    result_t result = E__UNKNOWN;
+    double * temp_row_vector = NULL;
+    int i = 0;
+
+    /* 0. Input validation */
+    if (NULL == matrix) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* 1. Allocate temp row vector */
+    temp_row_vector = (double *)malloc(sizeof(*temp_row_vector) * matrix->n);
+    if (NULL == temp_row_vector) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+       
+    /* 1.2. Zero vector */
+    (void)memset(temp_row_vector, 0, sizeof(*temp_row_vector) * matrix->n);
+
+    /* 2. Add (i,i) for each row */
+    for (i = 0 ; i < matrix->n ; ++i) {
+        /* 2.1. Set i-th cell as 1-norm */
+        temp_row_vector[i] = onenorm;
+
+        result = MATRIX_ADD_ROW(matrix, temp_row_vector, i);
+        if (E__SUCCESS != result) {
+            goto l_cleanup;
+        }
+
+        /* 2.3. Restore i-th cell to 0 */
+        temp_row_vector[i] = 0.0;
+    }
+
+
+    /* Success */
+    result = E__SUCCESS;
+l_cleanup:
+
+    FREE_SAFE(temp_row_vector);
+
+    return result;
+}
+

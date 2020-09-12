@@ -38,7 +38,6 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
                                      double *eigen_value_out);
 
 
-
 /* Functions *************************************************************************************/
 STATIC
 result_t
@@ -104,6 +103,7 @@ CLUSTER_divide(matrix_t *input,
     double *bs = NULL;
     double stbs = 0.0;
     size_t s_ones = 0;
+    double onenorm = 0.0;
     int i = 0;
     matrix_t *group1 = NULL;
     matrix_t *group2 = NULL;
@@ -124,10 +124,28 @@ CLUSTER_divide(matrix_t *input,
     FREE_SAFE(b_vector);
 
     /* 2. Calculate corresponding eigenvalue */
+    /* 2.1. Matrix shifting */
+    /* 2.1.1. Calculate 1-norm shifting */
+    result = SPMAT_LIST_get_1norm(input, &onenorm);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* 2.1.2. Add 1-norm to the diag */
+    result = MATRIX_add_diag(input, onenorm);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* 2.2. Calculate eigenvalue */ 
+    /* 2.2.1. Calculate eigenvalue plus 1-norm */ 
     result = cluster_calculate_leading_eigenvalue(input, leading_eigen, &leading_eigenvalue);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
+
+    /* 2.2.2. Decrease 1-norm */ 
+    leading_eigenvalue -= onenorm;
 
     /* 3. Check divisibility #1 */
     if (0 >= leading_eigenvalue) {
@@ -211,4 +229,3 @@ l_cleanup:
 
     return result;
 }
-
