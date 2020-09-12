@@ -57,7 +57,6 @@ SPMAT_ARRAY_allocate(int n, int nnz, matrix_t **mat_out)
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
-    mat->n = n;
     mat->add_row = spmat_array_add_row;
     mat->free = spmat_array_free;
     mat->mult = spmat_array_mult;

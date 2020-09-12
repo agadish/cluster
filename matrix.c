@@ -82,6 +82,9 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out)
     }
 #endif
 
+    mat->n = n;
+    mat->type = type;
+
     /* Success */
     *matrix_out = mat;
 

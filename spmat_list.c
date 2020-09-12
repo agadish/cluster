@@ -2,6 +2,8 @@
  * @file spmat_list.c
  * @purpose Sparse matrix implemented using linked lists
  */
+
+/* Includes **************************************************************************************/
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +13,7 @@
 #include "matrix.h"
 #include "spmat_list.h"
 #include "common.h"
+#include "debug.h"
 
 
 /* Structs ***************************************************************************************/
@@ -91,7 +94,6 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 
     /* 2. Initialize */
     (void)memset(mat, 0, sizeof(*mat));
-    mat->n = n;
     mat->add_row = spmat_list_add_row;
     mat->free = spmat_list_free;
     mat->mult = spmat_list_mult;
@@ -475,7 +477,8 @@ l_cleanup:
 }
 
 void
-SPMAT_LIST_print(matrix_t **mat_in){
+SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
+{
 	spmat_row_t *relevant_row_pointer = NULL;
     const node_t *scanner = NULL;
 	int length = 0;
@@ -483,33 +486,43 @@ SPMAT_LIST_print(matrix_t **mat_in){
 	int col = 0;
 	int last_scanner_index = 0;
 
-    if (NULL != mat) {
+    if (NULL == mat_in) {
+        DEBUG_PRINT("matrix is null");
+        return;
+    }
+
+    if (MATRIX_TYPE_SPMAT_LIST != mat_in->type) {
+        DEBUG_PRINT("invalid matrix type (got %d)", mat_in->type);
+        return;
+    }
+
+    if (NULL != mat_in) {
         length = mat_in->n;
-        if (NULL != rows_array) {
-        	printf("MATRIX");
-        	for (row = 0; row < n; row++){
-        		col = 0;
-        		last_scanner_index = 0;
-        		relevant_row_pointer = &GET_ROW((*mat_in), row);
-        		printf("||");
-        	    for (scanner = relevant_row_pointer->begin ;
-        	            NULL != scanner ;
-        	            scanner = scanner->next) {
+        printf("%s\n", matrix_name);
+        for (row = 0; row < mat_in->n; row++){
+            col = 0;
+            last_scanner_index = 0;
+            relevant_row_pointer = &GET_ROW(mat_in, row);
+            printf("||");
+            for (scanner = relevant_row_pointer->begin ;
+                    NULL != scanner ;
+                    scanner = scanner->next) {
 
-        	    	while (scanner->index > col){
-        	    		printf(" 0 ,");
-        	    	}
+                for ( ; scanner->index > col ; ++col){
+                    printf("%.2f ", 0.0);
+                }
 
-        	    	printf(" %lf ,", scanner-> value );
-        	    	col++;
+                printf("%.2lf ", scanner-> value );
+                col++;
 
-        	    	if (NULL != scanner){ last_scanner_index = scanner->index; }
+                if (NULL != scanner){ last_scanner_index = scanner->index; }
 
-        	    }
+            }
 
-        	    while (last_scanner_index < length) { printf(" 0 ,"); }
-        	    printf("|| \n");
-        	}
+            for ( ; last_scanner_index < length ; ++last_scanner_index) {
+                printf("%.2f ", 0.0);
+            }
+            printf("|| \n");
         }
     }
 

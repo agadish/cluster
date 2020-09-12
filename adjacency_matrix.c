@@ -170,52 +170,6 @@ ADJACENCY_MATRIX_free(adjacency_matrix_t *adjacency_matrix)
 }
 
 
-#ifdef MODULARITY_MATRIX_RAW
-result_t
-ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj, matrix_t **mod_matrix_out)
-{
-    result_t result = E__UNKNOWN;
-    matrix_t *mod_matrix = NULL;
-    int row = 0;
-    int col = 0;
-    double expected_edges = 0.0;
-    double b_value = 0.0;
-
-    /* 0. Input validation */
-    if ((NULL == adj) || (NULL == mod_matrix_out)) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
-
-    /* 1. Allocate modulation matrix */
-    result = MATRIX_create_matrix(adj->matrix->n,
-                                  MOD_MATRIX_TYPE,
-                                  &mod_matrix);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-
-    /* 2. Calculate each cell */
-    for (row = 0 ; row < adj->matrix->n ; ++row) {
-        for (col = 0 ; col < adj->matrix->n ; ++col) {
-            expected_edges = (adj->neighbors[row] * adj->neighbors[col]) / adj->M;
-            b_value = MATRIX_RAW_AT(adj->matrix, row, col) - expected_edges;
-            MATRIX_RAW_AT(mod_matrix, row, col) = b_value;
-        }
-    }
-
-    /* Success */
-    *mod_matrix_out = mod_matrix;
-
-    result = E__SUCCESS;
-l_cleanup:
-    if (E__SUCCESS != result) {
-        MATRIX_FREE_SAFE(mod_matrix);
-    }
-
-    return result;
-}
-#else /* !MODULARITY_MATRIX_RAW */
 result_t
 ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
                                       matrix_type_t mod_matrix_type,
@@ -285,4 +239,3 @@ l_cleanup:
 
     return result;
 }
-#endif /* !MODULARITY_MATRIX_RAW */

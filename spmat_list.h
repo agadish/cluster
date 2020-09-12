@@ -24,7 +24,7 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
                          matrix_t **matrix2_out);
 
 void
-SPMAT_LIST_print(matrix_t **mat_in);
+SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in);
 
 
 

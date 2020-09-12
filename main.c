@@ -1,4 +1,5 @@
 /**
+ *
  * @file main.c
  * @purpose Cluster main logic
  */
@@ -9,7 +10,9 @@
 #include "matrix.h"
 #include "adjacency_matrix.h"
 #include "common.h"
+#include "spmat_list.h"
 #include "cluster.h"
+#include "config.h"
 
 
 /* Enums *****************************************************************************************/
@@ -46,17 +49,21 @@ int main(int argc, const char * argv[])
 
     /* 3. Calculate modularity matrix */
     result = ADJACENCY_MATRIX_calculate_modularity(adj_matrix,
-                                                   MATRIX_TYPE_RAW,
+                                                   MOD_MATRIX_TYPE,
                                                    &mod_matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
 
+    SPMAT_LIST_print("mod_matrix", mod_matrix);
+
     /* 4. Divide */
     result = CLUSTER_divide(mod_matrix, &group1, &group2);
     if (E__SUCCESS != result) {
     }
+    SPMAT_LIST_print("group1", group1);
+    SPMAT_LIST_print("group2", group2);
 
 
     result = E__SUCCESS;
@@ -67,6 +74,8 @@ l_cleanup:
     }
 
     MATRIX_FREE_SAFE(mod_matrix);
+    MATRIX_FREE_SAFE(group1);
+    MATRIX_FREE_SAFE(group2);
 
     return (int)result;
 }
