@@ -108,48 +108,55 @@ CLUSTER_divide(matrix_t *input,
     matrix_t *group1 = NULL;
     matrix_t *group2 = NULL;
 
-    /* 1. Calculate leading eigenvector */
-    /* 1.1. Create b-vector */
-    result = VECTOR_random_vector(input->n, &b_vector);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-
-    /* 1.2. Create b-vector */
-    result = MATRIX_calculate_eigen(input, b_vector, &leading_eigen);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-    /* 1.3. Free the b-vector */
-    FREE_SAFE(b_vector);
-
-    /* 2. Calculate corresponding eigenvalue */
-    /* 2.1. Matrix shifting */
-    /* 2.1.1. Calculate 1-norm shifting */
+    /* 1. Matrix shifting */
+    /* 1.1. Calculate 1-norm shifting */
     result = SPMAT_LIST_get_1norm(input, &onenorm);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
+    DEBUG_PRINT("1norm=%f", onenorm);
 
-    /* 2.1.2. Add 1-norm to the diag */
+    /* 1.2. Add 1-norm to the diag */
     result = MATRIX_add_diag(input, onenorm);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
-    /* 2.2. Calculate eigenvalue */ 
-    /* 2.2.1. Calculate eigenvalue plus 1-norm */ 
+    /* 2. Calculate leading eigenvector */
+    /* 2.1. Create b-vector */
+    result = VECTOR_random_vector(input->n, &b_vector);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* 2.2. Calculate eigen */
+    result = MATRIX_calculate_eigen(input, b_vector, &leading_eigen);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+    /* 2.2. Free the b-vector */
+    FREE_SAFE(b_vector);
+
+    /* 3. Calculate eigenvalue */
+    /* 3.1. Calculate eigenvalue plus 1-norm */ 
     result = cluster_calculate_leading_eigenvalue(input, leading_eigen, &leading_eigenvalue);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
-    /* 2.2.2. Decrease 1-norm */ 
+    /* 3.2. Decrease 1-norm to the diag */
+    result = MATRIX_add_diag(input, -onenorm);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* 3.2. Decrease 1-norm */ 
     leading_eigenvalue -= onenorm;
 
     /* 3. Check divisibility #1 */
     if (0 >= leading_eigenvalue) {
         /* 4.1. Network is indivisable */
+        DEBUG_PRINT("Network is indivisable! leading eigenvalue is %f", leading_eigenvalue);
         *group1_out = NULL;
         *group2_out = NULL;
         result = E__SUCCESS;

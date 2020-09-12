@@ -25,7 +25,7 @@ typedef struct node_s {
  * @return One of result_t values
  */
 result_t
-LIST_NODE_create(int value, int index, node_t **node_out);
+LIST_NODE_create(double value, int index, node_t **node_out);
 
 /*
  * @purpose Extract a row with a given index from the Spmat List to a pre-allocated buffer

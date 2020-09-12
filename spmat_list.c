@@ -70,10 +70,6 @@ spmat_list_reduce_row(const spmat_row_t *original_row,
                        const int * s_indexes,
                        spmat_row_t *row_out);
 
-static
-result_t
-spmat_list_init_row(spmat_data_t *matrix_data, int row_index, const double *values, int values_length);
-
 /* Functions *************************************************************************************/
 result_t
 SPMAT_LIST_allocate(int n, matrix_t **mat_out)
@@ -184,13 +180,18 @@ spmat_list_free(matrix_t *mat)
 }
 
 result_t
-spmat_list_add_row(matrix_t *mat, const double *data, int row_index)
+spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
 {
     result_t result = E__UNKNOWN;
-    spmat_row_t *rows_array = NULL;
+    spmat_data_t *matrix_data = NULL;
+    spmat_row_t *row = NULL;
+    node_t *prev_node = NULL;
+    node_t *next_node = NULL;
+    int col = 0;
+    bool_t is_first_in_line = FALSE;
 
-    /* 1. Input validation */
-    if ((NULL == mat) || (NULL == mat->private) || (NULL == data)) {
+    /* 0. Input validation */
+    if ((NULL == mat) || (NULL == mat->private) || (NULL == values)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
@@ -200,18 +201,78 @@ spmat_list_add_row(matrix_t *mat, const double *data, int row_index)
         goto l_cleanup;
     }
 
-    rows_array = GET_ROWS_ARRAY(mat);
+    /* 1. Initialisations */
+    matrix_data = GET_SPMAT_DATA(mat);
+    row = &GET_ROW(mat, row_index);
+    prev_node = NULL;
+    next_node = row->begin;
+    is_first_in_line = TRUE;
 
-    /* 2. Check if row is already in use */
-    if (NULL != rows_array[row_index].begin) {
-        result = E__ROW_ALREADY_IN_USE;
-        goto l_cleanup;
+#if 0
+    DEBUG_PRINT("called with row %d, values: ", row_index);
+    for (col =  0 ; mat->n > col ; ++col) {
+        printf("%f ", values[col]);
     }
+    printf("\n");
+#endif /* 0 */
 
-    /* 3. Initialise row with new data */
-    result = spmat_list_init_row(GET_SPMAT_DATA(mat), row_index, data, mat->n);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
+    /* 2. Add row to matrix */
+    for (col = 0 ; mat->n > col ; ++col) {
+        if (0 != values[col]) {
+            /* 2.1. Update insertion point */
+            while ((NULL != next_node) && (col > next_node->index)) {
+                is_first_in_line = FALSE;
+                prev_node = next_node;
+                next_node = next_node->next;
+            }
+
+            /* 2.2. Find insertion place */
+            if (NULL == next_node) {
+                /* DEBUG_PRINT("row %d: Inserting last node at col %d value %f", row_index, col, values[col]); */
+                /* 2.2.1. Next node is NULL - we simply add it */
+                result = LIST_NODE_append(&prev_node, values[col], col);
+                if (E__SUCCESS != result) {
+                    goto l_cleanup;
+                }
+
+                /* 2.2.2. If prev node was NULL we are the row's beginning */
+                if (is_first_in_line) {
+                    /* DEBUG_PRINT("row %d was NULL", row_index); */
+                    is_first_in_line = FALSE;
+                    row->begin = prev_node;
+                }
+            /* 2.3. Next node can be either equal or larger*/
+            } else {
+                if (col == next_node->index) {
+                    /* 2.3.1. Found existing node - increase its value */
+                    /* DEBUG_PRINT("row %d: Adding %f to existing node at col %d with prev value %f", row_index, values[col], col, next_node->value); */
+                    next_node->value += values[col];
+                    is_first_in_line = FALSE;
+
+                    /* 2.3.2. Increase next node */
+                    prev_node = next_node;
+                    next_node = next_node->next;
+                } else if (col < next_node->index) {
+                    /* DEBUG_PRINT("row %d: Inserting node in the middle node at col %d value %f", row_index, col, values[col]); */
+                    /* 2.3.3. Add new node
+                     *        Note: row->begin already exists */
+                    result = LIST_NODE_append(&prev_node, values[col], col);
+                    if (E__SUCCESS != result) {
+                        goto l_cleanup;
+                    }
+
+                    /* 2.3.3. Set the new node's next as next_node */
+                    if (is_first_in_line) {
+                        is_first_in_line = FALSE;
+                        row->begin = prev_node;
+                    }
+                    prev_node->next = next_node;
+                }
+            }
+
+            row->sum += values[col];
+            matrix_data->columns_sum[col] += fabs(values[col]);
+        }
     }
 
     result = E__SUCCESS;
@@ -219,52 +280,6 @@ l_cleanup:
 
     return result;
 } 
-
-static
-result_t
-spmat_list_init_row(spmat_data_t *matrix_data, int row_index, const double *values, int values_length)
-{
-    result_t result = E__UNKNOWN;
-    spmat_row_t *row = NULL;
-    int i = 0;
-    node_t *last_node = NULL;
-    node_t *current_node = NULL;
-
-    row = &(matrix_data->rows[row_index]);
-
-    /* 3. Create a new row */
-    for (i = 0 ; values_length > i ; ++i) {
-        if (0 != values[i]) {
-            /* 3.1. Found a non-zero value, create a node for it */
-            result = LIST_NODE_create(values[i], i, &current_node);
-            if (E__SUCCESS != result) {
-                goto l_cleanup;
-            }
-            
-            /* 3.2. Link with last node */
-            if (NULL == last_node) {
-                /* 3.2.1. This node is the beginning of the row */
-                row->begin = current_node;
-            } else {
-                /* 3.2.2. Link to last node */
-                last_node->next = current_node;
-            }
-            /* 3.2.1. Is this the first node in the row? */
-            last_node = current_node;
-            row->sum += values[i];
-            matrix_data->columns_sum[i] += values[i];
-        }
-    }
-
-    result = E__SUCCESS;
-l_cleanup:
-
-    if (E__SUCCESS != result) {
-        LIST_NODE_destroy(row->begin);
-        row->begin = NULL;
-    }
-    return result;
-}
 
 static
 void
@@ -520,7 +535,6 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
 {
 	spmat_row_t *relevant_row_pointer = NULL;
     const node_t *scanner = NULL;
-	int length = 0;
 	int row = 0;
 	int col = 0;
 	int last_scanner_index = 0;
@@ -536,8 +550,7 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
     }
 
     if (NULL != mat_in) {
-        length = mat_in->n;
-        printf("%s\n(", matrix_name);
+        printf("%s:\n----------------------\n", matrix_name);
         for (row = 0; row < mat_in->n; row++){
             col = 0;
             last_scanner_index = 0;
@@ -548,23 +561,24 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
                     scanner = scanner->next) {
 
                 for ( ; scanner->index > col ; ++col){
-                    printf("%d, ", 0);
+                    printf("%5.2f ", 0.0);
                 }
 
-                printf("%d, ", (int)(scanner->value + 0.5) );
+                printf("%5.2f ", scanner->value);
                 col++;
 
-                if (NULL != scanner){ last_scanner_index = scanner->index; }
+                if (NULL != scanner) {
+                    last_scanner_index = col;
+                }
 
             }
 
-            for ( ; last_scanner_index < length ; ++last_scanner_index) {
-                printf("%d, ", 0);
+            for ( ; last_scanner_index < mat_in->n ; ++last_scanner_index) {
+                printf("%5.2f ", 0.0);
             }
-            printf("), \n");
+            printf("\n");
         }
     }
-    printf(")\n");
 
 }
 

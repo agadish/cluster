@@ -210,7 +210,7 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
     for (row = 0 ; row < adj->matrix->n ; ++row) {
         /* 2.2.1. Calculate each column */
         for (col = 0 ; col < adj->matrix->n ; ++col) {
-            expected_edges = (adj->neighbors[row] * adj->neighbors[col]) / adj->M;
+            expected_edges = ((double)(adj->neighbors[row]) * (double)(adj->neighbors[col])) / (double)(adj->M);
             /* DEBUG_PRINT("getting matrix at %d,%d (addr=%p)", */
             /*         row, */
             /*         col, */

@@ -14,7 +14,7 @@
 
 /* Functions *************************************************************************************/
 result_t
-LIST_NODE_create(int value, int index, node_t **node_out)
+LIST_NODE_create(double value, int index, node_t **node_out)
 {
     result_t result = E__UNKNOWN;
     node_t *node = NULL;
