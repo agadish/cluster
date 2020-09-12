@@ -21,7 +21,8 @@ typedef enum result_e {
     E__INVALID_ROW_INDEX, 
     E__UNKNOWN_MATRIX_IMPLEMNTATION,
     E__INVALID_MATRIX_TYPE,
-    E__INVALID_S_VECTOR
+    E__INVALID_S_VECTOR,
+    E__ROW_ALREADY_IN_USE,
 } result_t; 
 
 #endif /* __RESULTS_H__ */

@@ -47,11 +47,10 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
         double *eigen_value_out)
 {
     result_t result = E__UNKNOWN;
-    double total_ratio = 0.0;
-    size_t number_of_ratios = 0;
-    double eigen_value = 0.0;
     double *av = NULL;
-    int i = 0;
+    double eigen_norm = 0.0;
+    double eigen_value_non_normalized = 0.0;
+    double eigen_value = 0.0;
 
     /* 0. Input validation */
     if ((NULL == matrix) || (NULL == eigen_vector) || (NULL == eigen_value_out)) {
@@ -67,26 +66,20 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
         goto l_cleanup;
     }
 
-    /* 1.2. Multiply */
+    /* 1.2. Multiply Av */
     matrix->mult(matrix, eigen_vector, av);
 
-    /* 2. Calculate the avarage ratio between elements of Av and the eigen */
-    /* 2.1. Sum all ratios */
-    for (i = 0 ; i < matrix->n ; ++i) {
-        /* Av=gv ---> g = (Av)/v
-         * We'll calculate the avarage ratio. v[i] must not be zero */
-        if (0 != eigen_vector[i]) {
-            ++number_of_ratios;
-            total_ratio += av[i] / eigen_vector[i];
-        }
-    }
+    /* 2. Multiply v with Av */
+    eigen_value_non_normalized = VECTOR_scalar_multiply(eigen_vector, av, matrix->n);
+    eigen_norm = VECTOR_scalar_multiply(eigen_vector, eigen_vector, matrix->n);
 
     /* 2.2. Calculate the avarage, or set as 0 */
-    if (0 < number_of_ratios) {
-        eigen_value = total_ratio / number_of_ratios;
+    if (0 < eigen_norm) {
+        eigen_value = eigen_value_non_normalized / eigen_norm;
     } else {
         eigen_value = 0;
     }
+    DEBUG_PRINT("eigen value: %f/%f=%f", eigen_value_non_normalized, eigen_norm, eigen_value);
 
     /* Success */
     *eigen_value_out = eigen_value;
