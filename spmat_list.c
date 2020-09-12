@@ -24,11 +24,19 @@ typedef struct spmat_row_s {
     double sum;
 } spmat_row_t;
 
+/* spmat_row_t * matrix->private: n-sized array of spmat_row_t */
+typedef struct spmat_data_s {
+    /* Begin of row's linked list */
+    spmat_row_t *rows;
+    double *columns_sum;
+} spmat_data_t;
 
 /* Macros ****************************************************************************************/
-#define GET_ROWS_ARRAY(list) ((spmat_row_t *)((list)->private))
+#define GET_SPMAT_DATA(matrix) ((spmat_data_t *)((matrix)->private))
 
-#define GET_ROW(list, row_index) (GET_ROWS_ARRAY(list)[row_index])
+#define GET_ROWS_ARRAY(matrix) (GET_SPMAT_DATA(matrix)->rows)
+
+#define GET_ROW(matrix, row_index) (GET_ROWS_ARRAY(matrix)[row_index])
 
 
 /* Functions Declarations ************************************************************************/
@@ -71,7 +79,9 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 {
     result_t result = E__UNKNOWN;
     matrix_t *mat = NULL;
+    spmat_data_t *spmat_data = NULL;
     spmat_row_t *rows_array = NULL;
+    double *columns_sum = NULL;
     int rows_array_size = 0;
 
     /* 0. Input validation */
@@ -101,7 +111,15 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     mat->rmult = NULL;
     mat->private = NULL;
 
-    /* 3. Rows array */
+    /* 3. spmat struct */
+    spmat_data = (spmat_data_t *)malloc(sizeof(*spmat_data));
+    if (NULL == spmat_data) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+    (void)memset(spmat_data, 0, sizeof(*spmat_data));
+
+    /* 4. Rows array */
     rows_array_size = n * sizeof(*rows_array);
     rows_array = (spmat_row_t *)malloc(rows_array_size);
     if (NULL == rows_array) {
@@ -109,7 +127,18 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
         goto l_cleanup;
     }
     (void)memset(rows_array, 0, rows_array_size);
-    mat->private = (void *)rows_array;
+    spmat_data->rows = rows_array;
+
+    /* 5. Columns sums */
+    columns_sum = (double *)malloc(sizeof(*columns_sum) * n);
+    if (NULL == columns_sum) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+    (void)memset(columns_sum, 0, sizeof(*columns_sum) * n);
+    spmat_data->columns_sum = columns_sum;
+
+    mat->private = (void *)spmat_data;
 
     /* Success */
     *mat_out = mat;
@@ -129,18 +158,26 @@ static
 void
 spmat_list_free(matrix_t *mat)
 {
+    spmat_data_t *spmat_data = NULL;
     spmat_row_t *rows_array = NULL;
     int i = 0;
 
     if (NULL != mat) {
-        rows_array = GET_ROWS_ARRAY(mat);
-        if (NULL != rows_array) {
-            for (i = 0 ; i < mat->n ; ++i) {
-                LIST_NODE_destroy(rows_array[i].begin);
-                rows_array[i].begin = NULL;
-            }
+        spmat_data = GET_SPMAT_DATA(mat);
+        if (NULL != spmat_data) {
+            rows_array = spmat_data->rows;
+            if (NULL != rows_array) {
+                for (i = 0 ; i < mat->n ; ++i) {
+                    LIST_NODE_destroy(rows_array[i].begin);
+                    rows_array[i].begin = NULL;
+                }
 
-            FREE_SAFE(rows_array);
+                FREE_SAFE(spmat_data->rows);
+                rows_array = NULL;
+            }
+            
+            FREE_SAFE(spmat_data->columns_sum);
+            FREE_SAFE(spmat_data);
             mat->private = NULL;
         }
         FREE_SAFE(mat);
@@ -498,21 +535,21 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
 
     if (NULL != mat_in) {
         length = mat_in->n;
-        printf("%s\n", matrix_name);
+        printf("%s\n(", matrix_name);
         for (row = 0; row < mat_in->n; row++){
             col = 0;
             last_scanner_index = 0;
             relevant_row_pointer = &GET_ROW(mat_in, row);
-            printf("||");
+            printf("(");
             for (scanner = relevant_row_pointer->begin ;
                     NULL != scanner ;
                     scanner = scanner->next) {
 
                 for ( ; scanner->index > col ; ++col){
-                    printf("%.2f ", 0.0);
+                    printf("%d, ", 0);
                 }
 
-                printf("%.2lf ", scanner-> value );
+                printf("%d, ", (int)(scanner->value + 0.5) );
                 col++;
 
                 if (NULL != scanner){ last_scanner_index = scanner->index; }
@@ -520,11 +557,12 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
             }
 
             for ( ; last_scanner_index < length ; ++last_scanner_index) {
-                printf("%.2f ", 0.0);
+                printf("%d, ", 0);
             }
-            printf("|| \n");
+            printf("), \n");
         }
     }
+    printf(")\n");
 
 }
 
