@@ -29,6 +29,8 @@
 
 #define MATRIX_ADD_ROW(m, row, i) ((m)->add_row((m), (row), (i)))
 
+#define MATRIX_MULT(m, vector, result) ((m)->mult((m), (vector), (result)))
+
 
 /* Enums *****************************************************************************************/
 typedef enum matrix_type_e {

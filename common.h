@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "config.h"
 
 /* Constants *************************************************************************************/
 #define FALSE (0)
@@ -38,6 +39,8 @@ typedef uint8_t bool_t;
 #define UNUSED_ARG(a) ((void)(a))
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
+#define IS_POSITIVE(s) ((s) > EPSILON)
 
 
 #endif /* __COMMON_H__ */

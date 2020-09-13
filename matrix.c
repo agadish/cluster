@@ -172,7 +172,6 @@ MATRIX_add_diag(matrix_t *matrix, double onenorm)
         temp_row_vector[i] = 0.0;
     }
 
-
     /* Success */
     result = E__SUCCESS;
 l_cleanup:

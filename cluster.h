@@ -28,8 +28,15 @@ CLUSTER_divide(matrix_t *input,
                matrix_t **group1_out,
                matrix_t **group2_out);
 
+#if 0
 result_t
-CLUSTER_give_hat(matrix_t *matrix);
+CLUSTER_divide_repeatedly(matrix_t *matrix);
+#endif
+
+result_t
+CLUSTER_divide_alg4(matrix_t *matrix,
+                    matrix_t **group1_out,
+                    matrix_t **group2_out);
 
 
 #endif /* __CLUSTER_H__ */

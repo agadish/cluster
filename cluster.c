@@ -18,6 +18,7 @@
 #include "vector.h"
 #include "spmat_list.h"
 #include "debug.h"
+#include "list_node.h"
 
 
 /* Functions Declarations ************************************************************************/
@@ -42,8 +43,8 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
 STATIC
 result_t
 cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
-        const double *eigen_vector,
-        double *eigen_value_out)
+                                     const double *eigen_vector,
+                                     double *eigen_value_out)
 {
     result_t result = E__UNKNOWN;
     double *av = NULL;
@@ -73,7 +74,7 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
     eigen_norm = VECTOR_scalar_multiply(eigen_vector, eigen_vector, matrix->n);
 
     /* 2.2. Calculate the avarage, or set as 0 */
-    if (0 < eigen_norm) {
+    if (IS_POSITIVE(eigen_norm)) {
         eigen_value = eigen_value_non_normalized / eigen_norm;
     } else {
         eigen_value = 0;
@@ -237,6 +238,7 @@ l_cleanup:
     return result;
 }
 
+#if 0
 result_t
 CLUSTER_divide_repeatedly(matrix_t *matrix)
 {
@@ -267,3 +269,99 @@ l_cleanup:
 
     return result;
 }
+#endif
+
+double
+cluster_calculate_q(const matrix_t *matrix,
+                    const double *s_vector,
+                    double *temp)
+{
+    double q = 0.0;
+    MATRIX_MULT(matrix, s_vector, temp);
+    q = VECTOR_scalar_multiply(s_vector, temp, matrix->n);
+
+    return q;
+}
+
+result_t
+CLUSTER_divide_alg4(matrix_t *matrix,
+                    double *s_vector)
+{
+    result_t result = E__UNKNOWN;
+    node_t *unmoved_scores = NULL;
+    node_t *scanner = NULL;
+    node_t *max_unmoved = NULL;
+    double *temp = NULL;
+    double q_0 = 0.0;
+    int *indices = NULL;
+    double q_score = 0.0;
+    int i = 0;
+    int k = 0;
+
+    int max_score_index = 0;
+
+    /* 0. Input validation */
+    if ((NULL == matrix) || (NULL == s_vector)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* 1. Allocate memory */
+    temp = (double *)malloc(sizeof(*temp) * matrix->n);
+    if (NULL == temp) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
+    indices = (int *)malloc(sizeof(*indices) * matrix->n);
+    if (NULL == indices) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
+    result = LIST_NODE_range(matrix->n, &unmoved_scores);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    for (i = 0 ; i < matrix->n ; ++i) {
+        /* Calculate Q_0 */
+        q_0 = cluster_calculate_q(matrix, s_vector, temp);
+
+        /* Fill score array */
+        /* TODO: Improve unmoved_scores to use linked list */
+        for (scanner = unmoved_scores ; NULL != scanner ; scanner = scanner->next) {
+            /* Calculate score when moving k */
+            k = scanner->index;
+            s_vector[k] = -s_vector[k];
+            q_score = cluster_calculate_q(matrix, s_vector, temp);
+            s_vector[k] = -s_vector[k];
+            scanner->value = q_score - q_0;
+
+            /* Update max score */
+            if (NULL == max_unmoved) {
+                max_unmoved = scanner;
+            } else if (max_unmoved->value < scanner->value) {
+                max_unmoved = scanner;
+            }
+        }
+
+        /* Move vertex max_score_index with a maximal score */
+        s_vector[max_score_index] = -s_vector[max_score_index];
+        indices[i] = max_score_index;
+
+
+
+    }
+
+    /* Success */
+    result = E__SUCCESS;
+l_cleanup:
+
+    LIST_NODE_destroy(unmoved_scores);
+    FREE_SAFE(temp);
+
+    return result;
+}
+
+

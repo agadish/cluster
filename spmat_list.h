@@ -30,7 +30,15 @@ result_t
 SPMAT_LIST_get_1norm(const matrix_t *matrix, double *norm_out);
 
 result_t
-SPMAT_LIST_decrease_rows_sums_from_diag(const matrix_t *matrix);
+SPMAT_LIST_decrease_rows_sums_from_diag(matrix_t *matrix);
+
+/*
+ *
+ * @param vertices An external n-sized buffer which the vertices will be written to
+ *
+ */
+result_t
+SPMAT_LIST_get_vertices(matrix_t *matrix, int *vertices);
 
 
 

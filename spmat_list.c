@@ -615,12 +615,11 @@ l_cleanup:
 
 
 result_t
-SPMAT_LIST_decrease_rows_sums_from_diag(const matrix_t *matrix)
+SPMAT_LIST_decrease_rows_sums_from_diag(matrix_t *matrix)
 {
     result_t result = E__UNKNOWN;
     double *line_vector_tmp = NULL;
     int i = 0;
-    spmat_row_t *row = NULL;
     double row_sum = 0.0;
 
     /* 0. Input validation */
@@ -630,7 +629,7 @@ SPMAT_LIST_decrease_rows_sums_from_diag(const matrix_t *matrix)
     }
 
     /* 1. Allocate temp buffer */
-    line_vector_tmp = (double *)malloc(sizeof(*line_vector_tmp) * matrix->n));
+    line_vector_tmp = (double *)malloc(sizeof(*line_vector_tmp) * matrix->n);
     if (NULL == line_vector_tmp) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
@@ -638,8 +637,8 @@ SPMAT_LIST_decrease_rows_sums_from_diag(const matrix_t *matrix)
     (void)memset(line_vector_tmp, 0, sizeof(*line_vector_tmp) * matrix->n);
 
     for (i = 0 ; i < matrix->n ; ++i) {
-        line_vector_tmp[i] = matrix;
         row_sum = GET_ROW(matrix, i).sum;
+        line_vector_tmp[i] = row_sum;
         result = MATRIX_ADD_ROW(matrix, line_vector_tmp, i);
         if (E__SUCCESS != result) {
             goto l_cleanup;
@@ -652,6 +651,29 @@ SPMAT_LIST_decrease_rows_sums_from_diag(const matrix_t *matrix)
 l_cleanup:
 
     FREE_SAFE(line_vector_tmp);
+
+    return result;
+}
+
+result_t
+SPMAT_LIST_get_vertices(matrix_t *matrix, int *vertices)
+{
+    result_t result = E__UNKNOWN;
+    int i = 0;
+
+    /* 0. Input validation */
+    if ((NULL == matrix) || (NULL == vertices)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    for (i = 0 ; i < matrix->n ; ++i) {
+        vertices[i] = GET_ROW(matrix, i).begin->index;
+    }
+
+    /* Success */
+    result = E__SUCCESS;
+l_cleanup:
 
     return result;
 }

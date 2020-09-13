@@ -101,3 +101,37 @@ l_cleanup:
     return result;
 }
 
+result_t
+LIST_NODE_range(size_t count, node_t **node_out)
+{
+    result_t result = E__UNKNOWN;
+    node_t *head = NULL;
+    node_t *tail = NULL;
+    size_t i = 0;
+
+    if (NULL == node_out) {
+        result = E__NULL_ARGUMENT;
+    }
+
+    for (i = 0 ; i < count ; ++i) {
+        result = LIST_NODE_append(&tail, 0.0, i);
+        if (E__SUCCESS != result) {
+            goto l_cleanup;
+        }
+        
+        if (NULL == head) {
+            head = tail;
+        }
+    }
+
+    *node_out = head;
+    /* Success */
+    result = E__SUCCESS;
+l_cleanup:
+    if (E__SUCCESS != result) {
+        LIST_NODE_destroy(head);
+        head = NULL;
+    }
+
+    return result;
+}

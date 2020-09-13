@@ -52,6 +52,12 @@ LIST_NODE_scalar_multiply(node_t *row, const double *v);
 result_t
 LIST_NODE_append(node_t **last_node, double value, int index);
 
+/*
+ * Create a list from 0 (including) to count - 1 (including)
+ */
+result_t
+LIST_NODE_range(size_t count, node_t **node_out);
+
 
 #endif /* __LIST_NODE_H__ */
 
