@@ -3,7 +3,7 @@
  * @purpose Common vector functions
  */
 #ifndef __VECTOR_H__
-#define _VECTOR_H__
+#define __VECTOR_H__
 
 /* Includes **************************************************************************************/
 #include <stddef.h>

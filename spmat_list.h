@@ -29,6 +29,9 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in);
 result_t
 SPMAT_LIST_get_1norm(const matrix_t *matrix, double *norm_out);
 
+result_t
+SPMAT_LIST_decrease_rows_sums_from_diag(const matrix_t *matrix);
+
 
 
 #endif /* __SPMAT_LIST_H__ */

@@ -1,4 +1,4 @@
-GCC=/usr/bin/gcc
+GCC=/usr/bin/clang
 CFLAGS=--std=c99 -Wall -Wextra -Werror -pedantic-errors
 # CFLAGS=-ansi -Wall -Wextra -Werror -pedantic-errors
 DEBUG_FLAGS=-O0 -g -D__DEBUG__

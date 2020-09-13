@@ -236,3 +236,34 @@ l_cleanup:
 
     return result;
 }
+
+result_t
+CLUSTER_divide_repeatedly(matrix_t *matrix)
+{
+    result_t result = E__UNKNOWN;
+    double *line_vector_tmp = NULL;
+    int i = 0;
+
+    /* 0. Input validation */
+    if (NULL == matrix) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    result = SPMAT_LIST_decrease_rows_sums_from_diag(matrix);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    for (i = 0 ; i < matrix->n ; ++i) {
+        line_vector_tmp[i] = mat
+    }
+
+    
+
+    /* Success */
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}
