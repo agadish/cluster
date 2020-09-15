@@ -23,6 +23,7 @@ typedef enum result_e {
     E__INVALID_MATRIX_TYPE,
     E__INVALID_S_VECTOR,
     E__ROW_ALREADY_IN_USE,
+    E__UNDIVISIBLE_NETWORK,
 } result_t; 
 
 #endif /* __RESULTS_H__ */

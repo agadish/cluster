@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "list_node.h"
 #include "results.h"
 #include "matrix.h"
 #include "spmat_array.h"

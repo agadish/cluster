@@ -18,7 +18,7 @@
 #include "vector.h"
 #include "spmat_list.h"
 #include "debug.h"
-#include "list_node.h"
+#include "list.h"
 
 
 /* Functions Declarations ************************************************************************/
@@ -37,7 +37,43 @@ result_t
 cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
                                      const double *eigen_vector,
                                      double *eigen_value_out);
+STATIC
+result_t
+cluster_optimize_division_iteration(matrix_t *matrix,
+                              double *s_vector,
+                              double *improve,
+                              int *indices,
+                              double *temp,
+                              double *delta_q_out);
 
+STATIC
+result_t
+cluster_optimize_division(matrix_t *matrix,
+                          double *s_vector);
+
+/**
+ * @purpose divide a network to two groups
+ * @param input Matrix to divide
+ * @param s_vector A pre-allocated input->n sized s-vector
+ *
+ * @return One of result_t values, E__UNDIVISIBLE_NETWORK if network is undivisible
+ *
+ * @remark The returned eigen must be freed using MATRIX_free
+ */
+STATIC
+result_t
+cluster_divide(matrix_t *input,
+               double *s_vector);
+
+STATIC
+result_t
+cluster_sub_divide(matrix_t *input,
+                   double *s_vector);
+
+STATIC
+result_t
+cluster_sub_divide_optimized(matrix_t *input,
+                           double *s_vector);
 
 /* Functions *************************************************************************************/
 STATIC
@@ -91,23 +127,20 @@ l_cleanup:
     return result;
 }
 
+STATIC
 result_t
-CLUSTER_divide(matrix_t *input,
-               matrix_t **group1_out,
-               matrix_t **group2_out)
+cluster_divide(matrix_t *input,
+               double *s_vector)
 {
     result_t result = E__UNKNOWN;
     double *leading_eigen = NULL;
     double *b_vector = NULL;
-    double *s_vector = NULL;
     double leading_eigenvalue = 0.0;
     double *bs = NULL;
     double stbs = 0.0;
     size_t s_ones = 0;
     double onenorm = 0.0;
     int i = 0;
-    matrix_t *group1 = NULL;
-    matrix_t *group2 = NULL;
 
     /* 1. Matrix shifting */
     /* 1.1. Calculate 1-norm shifting */
@@ -158,20 +191,12 @@ CLUSTER_divide(matrix_t *input,
     if (0 >= leading_eigenvalue) {
         /* 4.1. Network is indivisable */
         DEBUG_PRINT("Network is indivisable! leading eigenvalue is %f", leading_eigenvalue);
-        *group1_out = NULL;
-        *group2_out = NULL;
-        result = E__SUCCESS;
+        result = E__UNDIVISIBLE_NETWORK;
         goto l_cleanup;
     }
 
     /* 4. Calculate S-vector */
     /* 4.1. Allocate s-vector */
-    s_vector = (double *)malloc(sizeof(*s_vector) * input->n);
-    if (NULL == s_vector) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
-
     /* 4.2. Normalize leading eigenvector */
     result = VECTOR_normalize(leading_eigen, input->n);
     if (E__SUCCESS != result) {
@@ -208,43 +233,77 @@ CLUSTER_divide(matrix_t *input,
     /* 6. Check divisibility #2 */
     if (0 >= stbs) {
         /* 7.1. Network is indivisable */
-        *group1_out = NULL;
-        *group2_out = NULL;
-        return result;
-    }
-
-    /* 7. Generate divised group */
-    /* If we are here the netwrk is divisible */
-    result = SPMAT_LIST_divide_matrix(input, s_vector, &group1, &group2);
-    if (E__SUCCESS != result) {
+        result = E__UNDIVISIBLE_NETWORK;
         goto l_cleanup;
     }
 
     /* Success */
-    *group1_out = group1;
-    *group2_out = group2;
     result = E__SUCCESS;
 
 l_cleanup:
-    if (E__SUCCESS != result) {
-        MATRIX_FREE_SAFE(group1);
-        MATRIX_FREE_SAFE(group2);
-    }
     FREE_SAFE(b_vector);
     FREE_SAFE(leading_eigen);
     FREE_SAFE(bs);
-    FREE_SAFE(s_vector);
 
     return result;
 }
 
-#if 0
+/* Algorithm 2 */
+STATIC
+result_t
+cluster_sub_divide(matrix_t *input,
+                   double *s_vector)
+{
+    result_t result = E__UNKNOWN;
+
+    result = SPMAT_LIST_decrease_rows_sums_from_diag(input);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    result = cluster_divide(input, s_vector);
+    if ( E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}
+
+STATIC
+result_t
+cluster_sub_divide_optimized(matrix_t *input,
+                           double *s_vector)
+{
+    result_t result = E__UNKNOWN;
+
+    result = cluster_sub_divide(input, s_vector);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    result = cluster_optimize_division(input, s_vector);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}
+
 result_t
 CLUSTER_divide_repeatedly(matrix_t *matrix)
 {
     result_t result = E__UNKNOWN;
-    double *line_vector_tmp = NULL;
-    int i = 0;
+    matrix_t **p_group = NULL;
+    size_t p_group_length = 0;
+    double *s_vector = NULL;
+    matrix_t *group1 = NULL;
+    matrix_t *group2 = NULL;
 
     /* 0. Input validation */
     if (NULL == matrix) {
@@ -252,24 +311,81 @@ CLUSTER_divide_repeatedly(matrix_t *matrix)
         goto l_cleanup;
     }
 
-    result = SPMAT_LIST_decrease_rows_sums_from_diag(matrix);
-    if (E__SUCCESS != result) {
+    /* 1. Initializations */
+    p_group = (matrix_t **)malloc(matrix->n * sizeof(*p_group));
+    if (NULL == p_group) {
+        result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    for (i = 0 ; i < matrix->n ; ++i) {
-        line_vector_tmp[i] = mat
+    s_vector = (double *)malloc(matrix->n * sizeof(*s_vector));
+    if (NULL == s_vector) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
     }
 
-    
+    p_group[0] = matrix;
+    ++p_group_length;
+
+    while (0 < p_group_length)
+    {
+        result = cluster_sub_divide_optimized(matrix, s_vector);
+        if (E__SUCCESS != result) {
+            if (E__UNDIVISIBLE_NETWORK == result) {
+                /* MATRIX_OUT_write(matrix); */
+                MATRIX_FREE_SAFE(matrix);
+                continue;
+            } else {
+                goto l_cleanup;
+            }
+        }
+
+        /* If we are here the netwrk is divisible */
+        result = SPMAT_LIST_divide_matrix(matrix, s_vector, &group1, &group2);
+        if (E__SUCCESS != result) {
+            goto l_cleanup;
+        }
+
+        if (0 == group1->n) {
+            /* MATRIX_OUT_write(group2); */
+            MATRIX_FREE_SAFE(group1);
+            MATRIX_FREE_SAFE(group2);
+            continue;
+        }
+        if (0 == group2->n) {
+            /* MATRIX_OUT_write(group1); */
+            MATRIX_FREE_SAFE(group1);
+            MATRIX_FREE_SAFE(group2);
+            continue;
+        }
+
+        if (1 == group1->n) {
+            /* MATRIX_OUT_write(group1); */
+            MATRIX_FREE_SAFE(group1);
+        } else {
+            p_group[p_group_length] = group1;
+            ++p_group_length;
+        }
+        
+        if (1 == group2->n) {
+            /* MATRIX_OUT_write(group2); */
+            MATRIX_FREE_SAFE(group2);
+        } else {
+            p_group[p_group_length] = group2;
+            ++p_group_length;
+        }
+
+    }
 
     /* Success */
     result = E__SUCCESS;
 l_cleanup:
 
+    FREE_SAFE(p_group);
+    FREE_SAFE(s_vector);
+
     return result;
 }
-#endif
 
 double
 cluster_calculate_q(const matrix_t *matrix,
@@ -283,24 +399,19 @@ cluster_calculate_q(const matrix_t *matrix,
     return q;
 }
 
+STATIC
 result_t
-CLUSTER_divide_alg4(matrix_t *matrix,
-                    double *s_vector)
+cluster_optimize_division(matrix_t *matrix,
+                          double *s_vector)
 {
     result_t result = E__UNKNOWN;
-    node_t *unmoved_scores = NULL;
-    node_t *scanner = NULL;
-    node_t *max_unmoved = NULL;
+    double delta_q = 0.0;
     double *temp = NULL;
-    double q_0 = 0.0;
     int *indices = NULL;
-    double q_score = 0.0;
-    int i = 0;
-    int k = 0;
-
-    int max_score_index = 0;
+    double *improve = NULL;
 
     /* 0. Input validation */
+
     if ((NULL == matrix) || (NULL == s_vector)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
@@ -319,23 +430,74 @@ CLUSTER_divide_alg4(matrix_t *matrix,
         goto l_cleanup;
     }
 
-    result = LIST_NODE_range(matrix->n, &unmoved_scores);
+    improve = (double *)malloc(sizeof(*improve) * matrix->n);
+    if (NULL == improve) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
+    /* 2. Do iterations as long as there's improvement */
+    do {
+        result = cluster_optimize_division_iteration(matrix,
+                s_vector,
+                improve,
+                indices,
+                temp,
+                &delta_q);
+        if (E__SUCCESS != result) {
+            goto l_cleanup;
+        }
+    } while (IS_POSITIVE(delta_q));
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    FREE_SAFE(temp);
+    FREE_SAFE(improve);
+    FREE_SAFE(indices);
+
+    return result;
+}
+
+STATIC
+result_t
+cluster_optimize_division_iteration(matrix_t *matrix,
+                                    double *s_vector,
+                                    double *improve,
+                                    int *indices,
+                                    double *temp,
+                                    double *delta_q_out)
+{
+    result_t result = E__UNKNOWN;
+    list_t *unmoved_scores = NULL;
+    node_t *scanner = NULL;
+    node_t *max_unmoved = NULL;
+    double q_0 = 0.0;
+    double delta_q = 0.0;
+    double q_score = 0.0;
+    int i = 0;
+    int k = 0;
+    /* A negative value will never be the max since the last improvement is always 0 */
+    double max_improvement_value = -1.0;
+    int max_improvement_index = 0;
+
+    /* 1. Initialize list */
+    result = LIST_range(matrix->n, &unmoved_scores);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
     for (i = 0 ; i < matrix->n ; ++i) {
-        /* Calculate Q_0 */
+        /* 2. Calculate Q_0 */
         q_0 = cluster_calculate_q(matrix, s_vector, temp);
 
-        /* Fill score array */
-        /* TODO: Improve unmoved_scores to use linked list */
-        for (scanner = unmoved_scores ; NULL != scanner ; scanner = scanner->next) {
+        /* 3. Computing DeltaQ for the move of each unmoved vertex */
+        for (scanner = unmoved_scores->first ; NULL != scanner ; scanner = scanner->next) {
             /* Calculate score when moving k */
             k = scanner->index;
-            s_vector[k] = -s_vector[k];
+            s_vector[k] *= -1;
             q_score = cluster_calculate_q(matrix, s_vector, temp);
-            s_vector[k] = -s_vector[k];
+            s_vector[k] *= -1;
             scanner->value = q_score - q_0;
 
             /* Update max score */
@@ -346,20 +508,47 @@ CLUSTER_divide_alg4(matrix_t *matrix,
             }
         }
 
-        /* Move vertex max_score_index with a maximal score */
-        s_vector[max_score_index] = -s_vector[max_score_index];
-        indices[i] = max_score_index;
+        /* 4. Move vertex max_score_index with a maximal score */
+        s_vector[max_unmoved->index] = -s_vector[max_unmoved->index];
+        indices[i] = max_unmoved->index;
+        if (0 == i) {
+            improve[i] = max_unmoved->value;
+        } else {
+            improve[i] = max_unmoved->value + improve[i - 1];
+        }
 
+        result = LIST_remove_node(unmoved_scores, max_unmoved);
+        if (E__SUCCESS != result) {
+            goto l_cleanup;
+        }
+        max_unmoved = NULL;
 
-
+        /* 5. Update max improvement */
+        if (max_improvement_value < improve[i]) {
+            max_improvement_index = i;
+            max_improvement_value = improve[i];
+        }
     }
+
+    /* 6. Apply the max improvement to the s-vector */
+    for (i = matrix->n - 1 ; i > max_improvement_index ; --i) {
+        s_vector[indices[i]] *= -1;
+    }
+
+    if (max_improvement_index == matrix->n - 1) {
+        delta_q = 0.0;
+    } else {
+        delta_q = improve[max_improvement_index];
+    }
+
+    *delta_q_out = delta_q;
 
     /* Success */
     result = E__SUCCESS;
 l_cleanup:
 
-    LIST_NODE_destroy(unmoved_scores);
-    FREE_SAFE(temp);
+    LIST_destroy(unmoved_scores);
+    unmoved_scores = NULL;
 
     return result;
 }

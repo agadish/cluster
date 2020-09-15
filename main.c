@@ -59,7 +59,7 @@ int main(int argc, const char * argv[])
     SPMAT_LIST_print("mod_matrix before cluster divide", mod_matrix);
 
     /* 4. Divide */
-    result = CLUSTER_divide(mod_matrix, &group1, &group2);
+    result = CLUSTER_divide_repeatedly(mod_matrix);
     if (E__SUCCESS != result) {
     }
     SPMAT_LIST_print("mod_matrix after cluster divide", mod_matrix);
