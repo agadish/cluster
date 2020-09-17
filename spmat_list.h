@@ -7,6 +7,7 @@
 
 /* Includes **************************************************************************************/
 #include <stddef.h>
+#include <stdio.h>
 
 #include "matrix.h"
 
@@ -16,6 +17,8 @@
 result_t
 SPMAT_LIST_allocate(int n, matrix_t **mat);
 
+result_t
+SPMAT_LIST_initialise_rows_numbers(matrix_t *mat);
 
 result_t
 SPMAT_LIST_divide_matrix(const matrix_t *matrix,
@@ -31,6 +34,12 @@ SPMAT_LIST_get_1norm(const matrix_t *matrix, double *norm_out);
 
 result_t
 SPMAT_LIST_decrease_rows_sums_from_diag(matrix_t *matrix);
+
+result_t
+SPMAT_LIST_write_neighbors(const matrix_t *matrix, FILE *file);
+
+result_t
+SPMAT_LIST_initialise_rows_numbers(matrix_t *mat);
 
 
 #endif /* __SPMAT_LIST_H__ */

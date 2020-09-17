@@ -32,6 +32,7 @@ int main(int argc, const char * argv[])
     matrix_t *mod_matrix = NULL;
     matrix_t *group1 = NULL;
     matrix_t *group2 = NULL;
+    division_file_t *division_file = NULL;
 
     /* 1. Input validation */
     if (ARG_COUNT != argc) {
@@ -55,16 +56,28 @@ int main(int argc, const char * argv[])
         goto l_cleanup;
     }
 
+    /* 4. Create output file */
+    result = DIVISION_FILE_open(argv[ARG_OUTPUT_GRAPH], &division_file);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
 
     SPMAT_LIST_print("mod_matrix before cluster divide", mod_matrix);
 
-    /* 4. Divide */
-    result = CLUSTER_divide_repeatedly(mod_matrix);
+    /* 5. Divide */
+    result = CLUSTER_divide_repeatedly(mod_matrix, division_file);
     if (E__SUCCESS != result) {
+        goto l_cleanup;
     }
     SPMAT_LIST_print("mod_matrix after cluster divide", mod_matrix);
     SPMAT_LIST_print("group1", group1);
     SPMAT_LIST_print("group2", group2);
+
+    /* 6. Finalize output file */
+    result = DIVISION_FILE_finalize(division_file);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
 
 
     result = E__SUCCESS;
@@ -73,6 +86,9 @@ l_cleanup:
         ADJACENCY_MATRIX_free(adj_matrix);
         adj_matrix = NULL;
     }
+
+    DIVISION_FILE_close(division_file);
+    division_file = NULL;
 
     MATRIX_FREE_SAFE(mod_matrix);
     MATRIX_FREE_SAFE(group1);

@@ -19,6 +19,7 @@
 #include "spmat_list.h"
 #include "debug.h"
 #include "list.h"
+#include "division_file.h"
 
 
 /* Functions Declarations ************************************************************************/
@@ -296,7 +297,7 @@ l_cleanup:
 }
 
 result_t
-CLUSTER_divide_repeatedly(matrix_t *matrix)
+CLUSTER_divide_repeatedly(matrix_t *matrix, division_file_t *output_file)
 {
     result_t result = E__UNKNOWN;
     matrix_t **p_group = NULL;
@@ -306,7 +307,7 @@ CLUSTER_divide_repeatedly(matrix_t *matrix)
     matrix_t *group2 = NULL;
 
     /* 0. Input validation */
-    if (NULL == matrix) {
+    if ((NULL == matrix) || (NULL == output_file)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
@@ -347,20 +348,30 @@ CLUSTER_divide_repeatedly(matrix_t *matrix)
         }
 
         if (0 == group1->n) {
-            /* MATRIX_OUT_write(group2); */
+            result = DIVISION_FILE_write_matrix(output_file, group2);
+            if (E__SUCCESS != result) {
+                goto l_cleanup;
+            }
+
             MATRIX_FREE_SAFE(group1);
             MATRIX_FREE_SAFE(group2);
             continue;
         }
         if (0 == group2->n) {
-            /* MATRIX_OUT_write(group1); */
+            result = DIVISION_FILE_write_matrix(output_file, group1);
+            if (E__SUCCESS != result) {
+                goto l_cleanup;
+            }
             MATRIX_FREE_SAFE(group1);
             MATRIX_FREE_SAFE(group2);
             continue;
         }
 
         if (1 == group1->n) {
-            /* MATRIX_OUT_write(group1); */
+            result = DIVISION_FILE_write_matrix(output_file, group1);
+            if (E__SUCCESS != result) {
+                goto l_cleanup;
+            }
             MATRIX_FREE_SAFE(group1);
         } else {
             p_group[p_group_length] = group1;
@@ -368,7 +379,10 @@ CLUSTER_divide_repeatedly(matrix_t *matrix)
         }
         
         if (1 == group2->n) {
-            /* MATRIX_OUT_write(group2); */
+            result = DIVISION_FILE_write_matrix(output_file, group2);
+            if (E__SUCCESS != result) {
+                goto l_cleanup;
+            }
             MATRIX_FREE_SAFE(group2);
         } else {
             p_group[p_group_length] = group2;

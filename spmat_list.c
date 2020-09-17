@@ -23,6 +23,7 @@ typedef struct spmat_row_s {
     /* Begin of row's linked list */
     list_t *list;
     double sum;
+    int index;
 } spmat_row_t;
 
 /* spmat_row_t * matrix->private: n-sized array of spmat_row_t */
@@ -204,7 +205,9 @@ spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
     matrix_data = GET_SPMAT_DATA(mat);
     row = &GET_ROW(mat, row_index);
     prev_node = NULL;
-    next_node = row->list->first;
+    if (NULL != row->list) {
+        next_node = row->list->first;
+    }
 
     /* 2. Add row to matrix */
     for (col = 0 ; mat->n > col ; ++col) {
@@ -219,6 +222,12 @@ spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
             if (NULL == next_node) {
                 /* DEBUG_PRINT("row %d: Inserting last node at col %d value %f", row_index, col, values[col]); */
                 /* 2.2.1. Next node is NULL - we simply add it */
+                if (NULL == row->list) {
+                    result = LIST_create(&row->list);
+                    if (E__SUCCESS != result) {
+                        goto l_cleanup;
+                    }
+                }
                 result = LIST_insert(row->list, prev_node, values[col], col);
                 if (E__SUCCESS != result) {
                     goto l_cleanup;
@@ -236,6 +245,12 @@ spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
                     /* DEBUG_PRINT("row %d: Inserting node in the middle node at col %d value %f", row_index, col, values[col]); */
                     /* 2.3.3. Add new node
                      *        Note: row->list already exists */
+                    if (NULL == row->list) {
+                        result = LIST_create(&row->list);
+                        if (E__SUCCESS != result) {
+                            goto l_cleanup;
+                        }
+                    }
                     result = LIST_insert(row->list, prev_node, values[col], col);
                     if (E__SUCCESS != result) {
                         goto l_cleanup;
@@ -258,7 +273,7 @@ l_cleanup:
 } 
 
 static
-void
+    void
 spmat_list_mult(const matrix_t *mat, const double *v, double *multiplication_result)
 {
     result_t result = E__UNKNOWN;
@@ -284,11 +299,11 @@ l_cleanup:
 }
 
 static
-result_t
+    result_t
 spmat_list_create_s_indexes(const double * vector_s,
-                            int length,
-                            int **s_indexes_out,
-                            int *matrix1_n_out)
+        int length,
+        int **s_indexes_out,
+        int *matrix1_n_out)
 {
     result_t result = E__UNKNOWN;
     int *s_indexes = NULL;
@@ -332,12 +347,12 @@ l_cleanup:
  * @param relevant_value 1 or -1 accordingly to the values belong to the given reduced row
  */
 static
-result_t
+    result_t
 spmat_list_reduce_row(const spmat_row_t *original_row,
-                       const double * vector_s,
-                       double relevant_vector_s_value,
-                       const int * s_indexes,
-                       spmat_row_t *row_out)
+        const double * vector_s,
+        double relevant_vector_s_value,
+        const int * s_indexes,
+        spmat_row_t *row_out)
 {
     result_t result = E__UNKNOWN;
     const node_t *scanner = NULL;
@@ -404,11 +419,11 @@ l_cleanup:
     return result;
 }
 
-result_t
+    result_t
 SPMAT_LIST_divide_matrix(const matrix_t *matrix,
-                         const double * vector_s,
-                         matrix_t **matrix1_out,
-                         matrix_t **matrix2_out)
+        const double * vector_s,
+        matrix_t **matrix1_out,
+        matrix_t **matrix2_out)
 {
     result_t result = E__UNKNOWN;
     matrix_t *matrix1 = NULL;
@@ -454,7 +469,7 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
-    
+
     /* 3. Go over each row of the original matrix */
     for (i = 0 ; i < matrix->n ; ++i) {
         /* 3.1. Get the relevant s-value (1=matrix1, -1=matrix2) */
@@ -474,10 +489,10 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
 
         /* 3.4. Add the filtered values in the row */
         result = spmat_list_reduce_row(&GET_ROW(matrix, i),
-                                       vector_s,
-                                       scanned_s_value,
-                                       s_indexes,
-                                       relevant_row_pointer);
+                vector_s,
+                scanned_s_value,
+                s_indexes,
+                relevant_row_pointer);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
@@ -500,14 +515,14 @@ l_cleanup:
     return result;
 }
 
-void
+    void
 SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
 {
-	spmat_row_t *relevant_row_pointer = NULL;
+    spmat_row_t *relevant_row_pointer = NULL;
     const node_t *scanner = NULL;
-	int row = 0;
-	int col = 0;
-	int last_scanner_index = 0;
+    int row = 0;
+    int col = 0;
+    int last_scanner_index = 0;
 
     if (NULL == mat_in) {
         DEBUG_PRINT("matrix is null");
@@ -552,7 +567,7 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
 
 }
 
-result_t
+    result_t
 SPMAT_LIST_get_1norm(const matrix_t *matrix, double *norm_out)
 {
     result_t result = E__SUCCESS;
@@ -584,7 +599,7 @@ l_cleanup:
 }
 
 
-result_t
+    result_t
 SPMAT_LIST_decrease_rows_sums_from_diag(matrix_t *matrix)
 {
     result_t result = E__UNKNOWN;
@@ -625,3 +640,56 @@ l_cleanup:
     return result;
 }
 
+
+    result_t
+SPMAT_LIST_write_neighbors(const matrix_t *matrix, FILE *file)
+{
+    result_t result = E__UNKNOWN;
+    size_t result_write = 0;
+    int i = 0;
+    int index = -1;
+
+    if ((NULL == matrix) || (NULL == file)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* Go over the matrix lines */
+    for (i = 0 ; i < matrix->n ; ++i) {
+        /* Get the line's index */
+        index = GET_ROW(matrix, i).index;
+
+        /* Write the line's index */
+        result_write = fwrite(&index, sizeof(index), 1, file);
+        if (1 != result_write) {
+            result = E__FWRITE_ERROR;
+            goto l_cleanup;
+        }
+    }
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}
+
+    result_t
+SPMAT_LIST_initialise_rows_numbers(matrix_t *mat)
+{
+    result_t result = E__UNKNOWN;
+    int i = 0;
+
+    if (NULL == mat) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    for (i = 0 ; i < mat->n ; ++i) {
+        GET_ROW(mat, i).index = i;
+    }
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}

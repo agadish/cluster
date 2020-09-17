@@ -215,6 +215,9 @@ LIST_remove_node(list_t *list, node_t *node)
         goto l_cleanup;
     }
 
+    prev = node->prev;
+    next = node->next;
+
     if (list->first == node) {
         list->first = next;
     }
