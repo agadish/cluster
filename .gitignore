@@ -4,4 +4,6 @@ tags
 cluster
 tests
 graph.out
+tester
+Tester_Files
 *.hex

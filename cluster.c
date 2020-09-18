@@ -333,26 +333,26 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
     /* Prevent input from being double freed */
     initial_matrix = NULL;
 
-    while (0 < p_group_length)
+    for (; 0 < p_group_length ; --p_group_length)
     {
         /* Take next matrix */
-        --p_group_length;
-        current_matrix = p_group[p_group_length];
-        (void)printf("\n\n-------------%s: diving matrix\n", __func__);
-        SPMAT_LIST_print("Original", current_matrix);
+        current_matrix = p_group[p_group_length - 1];
+        /* (void)printf("\n\n-------------%s: diving matrix\n", __func__); */
+        /* SPMAT_LIST_print("Original", current_matrix); */
 
         division_result = cluster_sub_divide_optimized(current_matrix,
                                                        s_vector);
         if (E__SUCCESS != division_result) {
             if (E__UNDIVISIBLE_NETWORK == division_result) {
                 /* Matrix is undivisibe - write it */
-                result = DIVISION_FILE_write_matrix(output_file, group2);
+                result = DIVISION_FILE_write_matrix(output_file, current_matrix);
                 if (E__SUCCESS != result) {
                     goto l_cleanup;
                 }
-                printf("no division");
+                /* printf("no division"); */
 
                 MATRIX_FREE_SAFE(current_matrix);
+                p_group[p_group_length - 1] = NULL;
 
                 /* Get next matrix from the p-group */
                 continue;
@@ -367,10 +367,13 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
+        MATRIX_FREE_SAFE(current_matrix);
+        p_group[p_group_length - 1] = NULL;
+        /* printf("divide result-matrix1=%p matrix2=%p\n", (void *)group1, (void *)group2); */
 
         if (0 == group1->n) {
-            result = DIVISION_FILE_write_matrix(output_file, group2);
-            SPMAT_LIST_print("group2 trivial", group2);
+            /* result = DIVISION_FILE_write_matrix(output_file, group2); */
+            /* SPMAT_LIST_print("group2 trivial", group2); */
             if (E__SUCCESS != result) {
                 goto l_cleanup;
             }
@@ -380,7 +383,7 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
             continue;
         }
         if (0 == group2->n) {
-            SPMAT_LIST_print("group1 trivial", group1);
+            /* SPMAT_LIST_print("group1 trivial", group1); */
             result = DIVISION_FILE_write_matrix(output_file, group1);
             if (E__SUCCESS != result) {
                 goto l_cleanup;
@@ -390,8 +393,8 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
             continue;
         }
 
-        SPMAT_LIST_print("Matrix1", group1);
-        SPMAT_LIST_print("Matrix2", group2);
+        /* SPMAT_LIST_print("Matrix1", group1); */
+        /* SPMAT_LIST_print("Matrix2", group2); */
 
         if (1 == group1->n) {
             result = DIVISION_FILE_write_matrix(output_file, group1);
@@ -400,7 +403,7 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
             }
             MATRIX_FREE_SAFE(group1);
         } else {
-            p_group[p_group_length] = group1;
+            p_group[p_group_length - 1] = group1;
             ++p_group_length;
         }
         
@@ -411,7 +414,7 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
             }
             MATRIX_FREE_SAFE(group2);
         } else {
-            p_group[p_group_length] = group2;
+            p_group[p_group_length - 1] = group2;
             ++p_group_length;
         }
 

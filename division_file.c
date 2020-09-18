@@ -81,6 +81,12 @@ DIVISION_FILE_write_matrix(division_file_t *division_file, const matrix_t *matri
         goto l_cleanup;
     }
 
+    if (0 == matrix->n) {
+        /* Nothing to write */
+        result = E__SUCCESS;
+        goto l_cleanup;
+    }
+
     /* 1. Write n to file */
     result_write = fwrite(&matrix->n,
                           sizeof(matrix->n),

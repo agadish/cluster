@@ -136,6 +136,7 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 
     mat->private = (void *)spmat_data;
 
+    printf("%s: addr %p n=%d\n", __func__, (void *)mat, n);
     /* Success */
     *mat_out = mat;
 
@@ -158,6 +159,7 @@ spmat_list_free(matrix_t *mat)
     spmat_row_t *rows_array = NULL;
     int i = 0;
 
+    printf("%s: addr %p n=%d\n", __func__, (void *)mat, mat->n);
     if (NULL != mat) {
         spmat_data = GET_SPMAT_DATA(mat);
         if (NULL != spmat_data) {
@@ -471,7 +473,9 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
     }
 
     /* 2.2. Matrix 2 */
-    result = MATRIX_create_matrix(matrix->n - matrix1_n, MATRIX_TYPE_SPMAT_LIST, &matrix2);
+    result = MATRIX_create_matrix(matrix->n - matrix1_n,
+                                  MATRIX_TYPE_SPMAT_LIST,
+                                  &matrix2);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
