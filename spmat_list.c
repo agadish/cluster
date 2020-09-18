@@ -42,19 +42,48 @@ typedef struct spmat_data_s {
 
 
 /* Functions Declarations ************************************************************************/
+/**
+ * @purpose updating a row in a sparse matrix implemented by linked lists
+ * @param A input Matrix
+ * @param row input updated values for the row
+ * @param i index of the row we want to update inside the matrix
+ *
+ * @return One of result_t values
+ *
+ */
 static
 result_t
 spmat_list_add_row(matrix_t *A, const double *row, int i);
 
+/**
+ * @purpose free allocated memory for a matrix
+ * @param A input Matrix
+ *
+ */
 static
 void
 spmat_list_free(matrix_t *A);
 
+/**
+ * @purpose multiplying a matrix with vector
+ * @param A input Matrix
+ * @param v input vector
+ * @param result output vector
+ *
+ */
 static
 void
 spmat_list_mult(const matrix_t *A, const double *v, double *result);
 
 /**
+ * @purpose creating a list of incrementing indexes for each one of the groups
+ *          according to values of s vector
+ * @param vector_s input s vector
+ * @param length length of s vector
+ * @param s_indexes_out output result list
+ * @param matrix1_n_out length of first group after division
+ *
+ * @return One of result_t values
  * @remark vector_s must be valid with given length, and values 1 or -1
  */
 static
@@ -63,6 +92,18 @@ spmat_list_create_s_indexes(const double * vector_s,
                             int length,
                             int **s_indexes_out,
                             int *matrix1_n_out);
+/**
+ * @purpose reducing a row inside a sparse matrix to values only
+ *          relevant to a specific group after division
+ * @param original_row input row list from sparse matrix
+ * @param vector_s input s vector describing division
+ * @param relavant_vector_s_value inoput 1 or -1, describing which group we are building
+ * @param s_indexes input list of incrementing indexes for each one of the groups
+ * @param row_out output new row
+ *
+ * @return One of result_t values
+ *
+ */
 static
 result_t
 spmat_list_reduce_row(const spmat_row_t *original_row,
@@ -684,7 +725,7 @@ l_cleanup:
     return result;
 }
 
-    result_t
+result_t
 SPMAT_LIST_initialise_rows_numbers(matrix_t *mat)
 {
     result_t result = E__UNKNOWN;
@@ -702,5 +743,41 @@ SPMAT_LIST_initialise_rows_numbers(matrix_t *mat)
     result = E__SUCCESS;
 l_cleanup:
 
+    return result;
+}
+
+double
+spmat_array_matrix_vector_sandwich(const matrix_t *mat, const double *v)
+{
+    result_t result = E__UNKNOWN;
+    spmat_row_t *rows_array = NULL;
+    double row_sum = 0.0;
+    double result = 0.0;
+    int row = 0;
+
+    if ((NULL == mat) || (NULL == v) || (NULL == multiplication_result)) {
+        /* Remark: this function signature shouldn't be void */
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    rows_array = GET_ROWS_ARRAY(mat);
+    for (row = 0 ; row < mat->n ; ++row) {
+        if (rows_array[i].list == NULL){
+        	continue;
+        } else {
+            for (scanner = rows_array[i].list->first ; NULL != scanner ; scanner = scanner->next) {
+                row_sum += (scanner->value * v[scanner->index]);
+            }
+        }
+
+        result += row_sum * v[row]
+        row_sum = 0.0;
+    }
+
+    result = E__SUCCESS;
+l_cleanup:
+
+    UNUSED_ARG(result);
     return result;
 }

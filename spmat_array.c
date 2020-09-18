@@ -109,6 +109,43 @@ l_cleanup:
     return result;
 }
 
+double
+SPMAT_ARRAY_matrix_vector_sandwich(const matrix_t *mat, const double *v)
+{
+    int row;
+    int n;
+    int i;
+    int first_index_row;
+    int non_zero_in_row;
+    double row_sum = 0.0;
+    double result = 0.0;
+    spmat_array_t *spmat_array_data;
+    double *values;
+    int *colind, *rowptr;
+
+
+    spmat_array_data = (spmat_array_t *)mat->private;
+    n = mat->n;
+    values = spmat_array_data->values;
+    colind = spmat_array_data->colind;
+    rowptr = spmat_array_data->rowptr;
+
+    for (row = 0 ; row < n; ++row) {
+        first_index_row = rowptr[row];
+        non_zero_in_row = rowptr[row + 1] - rowptr[row];
+        if (0 != non_zero_in_row) {
+            for (i = 0 ; i < non_zero_in_row ; ++i){
+                row_sum += (values[first_index_row + i] * v[colind[first_index_row + i]]);
+            }
+        }
+
+        result += row_sum * v[row];
+        row_sum = 0.0;
+    }
+
+    return result;
+}
+
 static
 void
 spmat_array_free(matrix_t *mat)
@@ -213,3 +250,4 @@ spmat_array_mult(const matrix_t *mat, const double *v, double *result)
         sum = 0.0;
     }
 }
+
