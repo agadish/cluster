@@ -297,52 +297,71 @@ l_cleanup:
 }
 
 result_t
-CLUSTER_divide_repeatedly(matrix_t *matrix, division_file_t *output_file)
+CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file)
 {
     result_t result = E__UNKNOWN;
+    result_t division_result = E__UNKNOWN;
     matrix_t **p_group = NULL;
+    matrix_t *current_matrix = NULL;
     size_t p_group_length = 0;
     double *s_vector = NULL;
     matrix_t *group1 = NULL;
     matrix_t *group2 = NULL;
 
     /* 0. Input validation */
-    if ((NULL == matrix) || (NULL == output_file)) {
+    if ((NULL == initial_matrix) || (NULL == output_file)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
 
+
     /* 1. Initializations */
-    p_group = (matrix_t **)malloc(matrix->n * sizeof(*p_group));
+    p_group = (matrix_t **)malloc(initial_matrix->n * sizeof(*p_group));
     if (NULL == p_group) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    s_vector = (double *)malloc(matrix->n * sizeof(*s_vector));
+    s_vector = (double *)malloc(initial_matrix->n * sizeof(*s_vector));
     if (NULL == s_vector) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    p_group[0] = matrix;
+    /* 1. Initailize p-group */
+    p_group[0] = initial_matrix;
     ++p_group_length;
+    /* Prevent input from being double freed */
+    initial_matrix = NULL;
 
     while (0 < p_group_length)
     {
-        result = cluster_sub_divide_optimized(matrix, s_vector);
-        if (E__SUCCESS != result) {
-            if (E__UNDIVISIBLE_NETWORK == result) {
-                /* MATRIX_OUT_write(matrix); */
-                MATRIX_FREE_SAFE(matrix);
+        /* Take next matrix */
+        --p_group_length;
+        current_matrix = p_group[p_group_length];
+
+        division_result = cluster_sub_divide_optimized(current_matrix,
+                                                       s_vector);
+        if (E__SUCCESS != division_result) {
+            if (E__UNDIVISIBLE_NETWORK == division_result) {
+                /* Matrix is undivisibe - write it */
+                result = DIVISION_FILE_write_matrix(output_file, group2);
+                if (E__SUCCESS != result) {
+                    goto l_cleanup;
+                }
+
+                MATRIX_FREE_SAFE(current_matrix);
+
+                /* Get a matrix from the p-group */
                 continue;
             } else {
+                result = division_result;
                 goto l_cleanup;
             }
         }
 
         /* If we are here the netwrk is divisible */
-        result = SPMAT_LIST_divide_matrix(matrix, s_vector, &group1, &group2);
+        result = SPMAT_LIST_divide_matrix(current_matrix, s_vector, &group1, &group2);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
@@ -394,6 +413,13 @@ CLUSTER_divide_repeatedly(matrix_t *matrix, division_file_t *output_file)
     /* Success */
     result = E__SUCCESS;
 l_cleanup:
+
+    /* Will be freed in case of failure before being inserted to p_group */
+    MATRIX_FREE_SAFE(initial_matrix);
+    while (p_group_length > 0) {
+        --p_group_length;
+        MATRIX_FREE_SAFE(p_group[p_group_length]);
+    }
 
     FREE_SAFE(p_group);
     FREE_SAFE(s_vector);

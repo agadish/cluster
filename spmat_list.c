@@ -347,7 +347,7 @@ l_cleanup:
  * @param relevant_value 1 or -1 accordingly to the values belong to the given reduced row
  */
 static
-    result_t
+result_t
 spmat_list_reduce_row(const spmat_row_t *original_row,
         const double * vector_s,
         double relevant_vector_s_value,
@@ -356,7 +356,7 @@ spmat_list_reduce_row(const spmat_row_t *original_row,
 {
     result_t result = E__UNKNOWN;
     const node_t *scanner = NULL;
-    list_t *list = NULL;
+    list_t *reduced_list = NULL;
     double scanned_s_value = 0.0; /* 1 or -1 */
     int scanned_index = 0.0; /* 0 ... n */
     double sum = 0.0;
@@ -364,6 +364,12 @@ spmat_list_reduce_row(const spmat_row_t *original_row,
     /* 1. Check if original row is zeroes */
     if (NULL == original_row) {
         result = E__SUCCESS;
+        goto l_cleanup;
+    }
+
+    /* 2. Create new list */
+    result = LIST_create(&reduced_list);
+    if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
@@ -398,22 +404,21 @@ spmat_list_reduce_row(const spmat_row_t *original_row,
         /* 2.2. Append nodes with our s-value to the end of our new row */
         scanned_index = s_indexes[scanner->index];
         sum += scanner->value;
-        result = LIST_insert(original_row->list, NULL, scanner->value, scanned_index);
+        result = LIST_insert(reduced_list, NULL, scanner->value, scanned_index);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
     }
 
     /* Success */
-    row_out->list = list;
+    row_out->list = reduced_list;
     row_out->sum = sum;
 
     result = E__SUCCESS;
 l_cleanup:
-
     if (E__SUCCESS != result) {
-        LIST_destroy(list);
-        list = NULL;
+        LIST_destroy(reduced_list);
+        reduced_list = NULL;
     }
 
     return result;

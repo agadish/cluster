@@ -48,7 +48,14 @@ int main(int argc, const char * argv[])
         goto l_cleanup;
     }
 
-    /* 3. Calculate modularity matrix */
+
+    /* 3. Create output file */
+    result = DIVISION_FILE_open(argv[ARG_OUTPUT_GRAPH], &division_file);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* 4. Calculate modularity matrix */
     result = ADJACENCY_MATRIX_calculate_modularity(adj_matrix,
                                                    MOD_MATRIX_TYPE,
                                                    &mod_matrix);
@@ -56,22 +63,12 @@ int main(int argc, const char * argv[])
         goto l_cleanup;
     }
 
-    /* 4. Create output file */
-    result = DIVISION_FILE_open(argv[ARG_OUTPUT_GRAPH], &division_file);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-
-    SPMAT_LIST_print("mod_matrix before cluster divide", mod_matrix);
-
-    /* 5. Divide */
+    /* 5. Divide. Note: mod_matrix is freed by divide */
     result = CLUSTER_divide_repeatedly(mod_matrix, division_file);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
-    SPMAT_LIST_print("mod_matrix after cluster divide", mod_matrix);
-    SPMAT_LIST_print("group1", group1);
-    SPMAT_LIST_print("group2", group2);
+    mod_matrix = NULL;
 
     /* 6. Finalize output file */
     result = DIVISION_FILE_finalize(division_file);
