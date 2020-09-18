@@ -5,6 +5,7 @@
  */
 
 #include <stdio.h>
+#include <time.h>
 
 #include "results.h"
 #include "matrix.h"
@@ -33,6 +34,8 @@ int main(int argc, const char * argv[])
     matrix_t *group1 = NULL;
     matrix_t *group2 = NULL;
     division_file_t *division_file = NULL;
+    clock_t start = 0;
+    clock_t end = 0;
 
     /* 1. Input validation */
     if (ARG_COUNT != argc) {
@@ -41,6 +44,8 @@ int main(int argc, const char * argv[])
         result = E__INVALID_CMDLINE_ARGS;
         goto l_cleanup;
     }
+
+    start = clock();
 
     /* 2. Open adjacency matrix */
     result = ADJACENCY_MATRIX_open(argv[ARG_INPUT_ADJACENCY], &adj_matrix);
@@ -75,6 +80,9 @@ int main(int argc, const char * argv[])
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
+
+    end = clock();
+    printf("OUR PROGRAM: took %f sec\n", (double)(end - start) / CLOCKS_PER_SEC);
 
 
     result = E__SUCCESS;

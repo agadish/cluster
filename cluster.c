@@ -372,7 +372,7 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
         /* printf("divide result-matrix1=%p matrix2=%p\n", (void *)group1, (void *)group2); */
 
         if (0 == group1->n) {
-            /* result = DIVISION_FILE_write_matrix(output_file, group2); */
+            result = DIVISION_FILE_write_matrix(output_file, group2);
             /* SPMAT_LIST_print("group2 trivial", group2); */
             if (E__SUCCESS != result) {
                 goto l_cleanup;
