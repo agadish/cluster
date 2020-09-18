@@ -314,7 +314,6 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
         goto l_cleanup;
     }
 
-
     /* 1. Initializations */
     p_group = (matrix_t **)malloc(initial_matrix->n * sizeof(*p_group));
     if (NULL == p_group) {
@@ -339,6 +338,8 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
         /* Take next matrix */
         --p_group_length;
         current_matrix = p_group[p_group_length];
+        (void)printf("\n\n-------------%s: diving matrix\n", __func__);
+        SPMAT_LIST_print("Original", current_matrix);
 
         division_result = cluster_sub_divide_optimized(current_matrix,
                                                        s_vector);
@@ -349,10 +350,11 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
                 if (E__SUCCESS != result) {
                     goto l_cleanup;
                 }
+                printf("no division");
 
                 MATRIX_FREE_SAFE(current_matrix);
 
-                /* Get a matrix from the p-group */
+                /* Get next matrix from the p-group */
                 continue;
             } else {
                 result = division_result;
@@ -368,6 +370,7 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
 
         if (0 == group1->n) {
             result = DIVISION_FILE_write_matrix(output_file, group2);
+            SPMAT_LIST_print("group2 trivial", group2);
             if (E__SUCCESS != result) {
                 goto l_cleanup;
             }
@@ -377,6 +380,7 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
             continue;
         }
         if (0 == group2->n) {
+            SPMAT_LIST_print("group1 trivial", group1);
             result = DIVISION_FILE_write_matrix(output_file, group1);
             if (E__SUCCESS != result) {
                 goto l_cleanup;
@@ -385,6 +389,9 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
             MATRIX_FREE_SAFE(group2);
             continue;
         }
+
+        SPMAT_LIST_print("Matrix1", group1);
+        SPMAT_LIST_print("Matrix2", group2);
 
         if (1 == group1->n) {
             result = DIVISION_FILE_write_matrix(output_file, group1);

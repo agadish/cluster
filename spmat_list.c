@@ -373,7 +373,7 @@ spmat_list_reduce_row(const spmat_row_t *original_row,
         goto l_cleanup;
     }
 
-    /* 2. Go over nodes in the given row */
+    /* 3. Go over nodes in the given row */
     for (scanner = original_row->list->first ;
             NULL != scanner ;
             scanner = scanner->next) {
@@ -413,6 +413,7 @@ spmat_list_reduce_row(const spmat_row_t *original_row,
     /* Success */
     row_out->list = reduced_list;
     row_out->sum = sum;
+    row_out->index = original_row->index;
 
     result = E__SUCCESS;
 l_cleanup:
@@ -424,7 +425,7 @@ l_cleanup:
     return result;
 }
 
-    result_t
+result_t
 SPMAT_LIST_divide_matrix(const matrix_t *matrix,
         const double * vector_s,
         matrix_t **matrix1_out,
@@ -540,7 +541,8 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
     }
 
     if (NULL != mat_in) {
-        printf("%s:\n----------------------\n", matrix_name);
+        printf("%s:\n----------------------\n",
+                (NULL == matrix_name) ? "matrix" : matrix_name);
         for (row = 0; row < mat_in->n; row++){
             col = 0;
             last_scanner_index = 0;
@@ -646,7 +648,7 @@ l_cleanup:
 }
 
 
-    result_t
+result_t
 SPMAT_LIST_write_neighbors(const matrix_t *matrix, FILE *file)
 {
     result_t result = E__UNKNOWN;
