@@ -192,15 +192,9 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
     }
 
     /* 1. Allocate modulation matrix */
-    /* 1.1. Allocate modulation matrix */
     result = MATRIX_create_matrix(adj->matrix->n,
                                   mod_matrix_type,
                                   &mod_matrix);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-    /* 1.2. Add line numbers */
-    result = SPMAT_LIST_initialise_rows_numbers(mod_matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }

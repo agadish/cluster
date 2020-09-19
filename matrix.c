@@ -18,7 +18,6 @@
 #include "spmat_array.h"
 #include "matrix_raw.h"
 
-
 /* Functions ************************************************************************************/
 result_t
 MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out)
@@ -31,7 +30,7 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out)
     switch (type)
     {
     case MATRIX_TYPE_SPMAT_LIST:
-        result = SPMAT_LIST_allocate(n, &mat);
+        result = SPMAT_LIST_allocate(n, TRUE, &mat);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
@@ -82,9 +81,6 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out)
     }
 #endif
 
-    mat->n = n;
-    mat->type = type;
-
     /* Success */
     *matrix_out = mat;
 
@@ -92,10 +88,7 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out)
 l_cleanup:
     if (E__SUCCESS != result) {
         /* On failure free the smpat */
-        if (NULL != mat) {
-            mat->free(mat);
-            mat = NULL;
-        }
+        MATRIX_FREE_SAFE(mat);
     }
 #if 0
     LAZY_MATRIX_close(input_matrix);

@@ -56,7 +56,7 @@ MATRIX_calculate_eigen(const matrix_t *input,
         vector_res = b_vector;
         b_vector = temp;
 
-        input->mult(input, b_vector, vector_res);
+        MATRIX_MULT(input, b_vector, vector_res);
         result = VECTOR_normalize(vector_res, input->n);
         if (E__SUCCESS != result) {
             goto l_cleanup;
