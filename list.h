@@ -44,8 +44,20 @@ LIST_create(list_t **list_out);
 void
 LIST_destroy(list_t *list);
 
+/**
+ * Create a new node with the given value and index.
+ * The node will be inserted before next_node, or if NULL is given it will be
+ * appended to the end of the list
+ *
+ * @param list The list
+ * @param node_next An existing node which will the the new one's next
+ * @param value The value
+ * @param index The index
+ *
+ * @return One of result_t values
+ */
 result_t
-LIST_insert(list_t *list, node_t *insertion_point, double value, int index);
+LIST_insert(list_t *list, node_t *next_node, double value, int index);
 
 /*
  * Create a list from 0 (including) to count - 1 (including)

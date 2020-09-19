@@ -28,14 +28,9 @@ SUBMATRIX_create(const adjacency_matrix_t *adj,
     int g_length = 0;
     submatrix_t *smat = NULL;
 
-    if ((NULL == adj) || (NULL == g) || (NULL == smat_out))
+    if ((NULL == adj) || (NULL == smat_out))
     {
         result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
-
-    if (0 > g_length) {
-        result = E__INVALID_SIZE;
         goto l_cleanup;
     }
 

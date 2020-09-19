@@ -17,7 +17,7 @@
 /* Functions Declarations ************************************************************************/
 static
 result_t
-node_insert(node_t *prev, double value, int index, node_t **node_out);
+node_insert(node_t *next, double value, int index, node_t **node_out);
 
 static
 void
@@ -40,11 +40,11 @@ node_link(node_t *first, node_t *second)
 
 static
 result_t
-node_insert(node_t *prev, double value, int index, node_t **node_out)
+node_insert(node_t *next, double value, int index, node_t **node_out)
 {
     result_t result = E__UNKNOWN;
     node_t *node = NULL;
-    node_t *next = NULL;
+    node_t *prev = NULL;
 
     node = (node_t *)malloc(sizeof(*node));
     if (NULL == node) {
@@ -54,8 +54,8 @@ node_insert(node_t *prev, double value, int index, node_t **node_out)
     node->value = value;
     node->index = index;
 
-    if (NULL != prev) {
-        next = prev->next;
+    if (NULL != next) {
+        prev = next->prev;
     }
 
     node_link(prev, node);
@@ -117,10 +117,10 @@ LIST_destroy(list_t *list)
 }
 
 result_t
-LIST_insert(list_t *list, node_t *insertion_point, double value, int index)
+LIST_insert(list_t *list, node_t *next_node, double value, int index)
 {
     result_t result = E__UNKNOWN;
-    node_t *new_last_node = NULL;
+    node_t *new_node = NULL;
 
     if (NULL == list)
     {
@@ -128,18 +128,20 @@ LIST_insert(list_t *list, node_t *insertion_point, double value, int index)
         goto l_cleanup;
     }
 
-    if (NULL == insertion_point) {
-        insertion_point = list->last;
+    if (NULL == next_node) {
+        next_node = list->last;
     }
 
-    result = node_insert(insertion_point, value, index, &new_last_node);
+    result = node_insert(next_node, value, index, &new_node);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
     
-    list->last = new_last_node;
-    if (NULL == list->first) {
-        list->first = new_last_node;
+    if (NULL == next_node) {
+        list->last = new_node;
+    }
+    if (NULL == new_node->prev) {
+        list->first = new_node;
     }
     
     result = E__SUCCESS;
@@ -147,7 +149,7 @@ l_cleanup:
 
     if (E__SUCCESS != result) {
         LIST_destroy(list);
-        new_last_node = NULL;
+        new_node = NULL;
     }
 
     return result;
