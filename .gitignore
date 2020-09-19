@@ -6,4 +6,6 @@ tests
 graph.out
 tester
 Tester_Files
+perf.data
+gmon.out
 *.hex

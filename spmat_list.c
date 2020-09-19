@@ -3,7 +3,7 @@
  * @purpose Sparse matrix implemented using linked lists
  */
 
-/* Includes **************************************************************************************/
+/* Includes ******************************************************************/
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +15,10 @@
 #include "spmat_list.h"
 #include "common.h"
 #include "debug.h"
+#include "vector.h"
 
 
-/* Structs ***************************************************************************************/
+/* Structs *******************************************************************/
 /* spmat_row_t * matrix->private: n-sized array of spmat_row_t */
 typedef struct spmat_row_s {
     /* Begin of row's linked list */
@@ -31,9 +32,11 @@ typedef struct spmat_data_s {
     /* Begin of row's linked list */
     spmat_row_t *rows;
     double *columns_sum;
+    double *temp_buffer; /* n-sized buffer required for various calculations */
 } spmat_data_t;
 
-/* Macros ****************************************************************************************/
+
+/* Macros ********************************************************************/
 #define GET_SPMAT_DATA(matrix) ((spmat_data_t *)((matrix)->private))
 
 #define GET_ROWS_ARRAY(matrix) (GET_SPMAT_DATA(matrix)->rows)
@@ -41,28 +44,28 @@ typedef struct spmat_data_s {
 #define GET_ROW(matrix, row_index) (GET_ROWS_ARRAY(matrix)[row_index])
 
 
-/* Functions Declarations ************************************************************************/
+/* Functions Declarations ****************************************************/
+/**
+ * @see matrix_add_row_f on matrix.h
+ */
 static
 result_t
 spmat_list_add_row(matrix_t *A, const double *row, int i);
 
+/**
+ * @see matrix_free_f on matrix.h
+ */
 static
 void
 spmat_list_free(matrix_t *A);
 
+/**
+ * @see matrix_mult_f on matrix.h
+ */
 static
 void
 spmat_list_mult(const matrix_t *A, const double *v, double *result);
 
-/**
- * @remark vector_s must be valid with given length, and values 1 or -1
- */
-static
-result_t
-spmat_list_create_s_indexes(const double * vector_s,
-                            int length,
-                            int **s_indexes_out,
-                            int *matrix1_n_out);
 static
 result_t
 spmat_list_reduce_row(const spmat_row_t *original_row,
@@ -71,9 +74,45 @@ spmat_list_reduce_row(const spmat_row_t *original_row,
                        const int * s_indexes,
                        spmat_row_t *row_out);
 
-/* Functions *************************************************************************************/
+static
+double
+spmat_list_get_1norm(const matrix_t *matrix);
+
+static 
 result_t
-SPMAT_LIST_allocate(int n, matrix_t **mat_out)
+spmat_list_decrease_rows_sums_from_diag(matrix_t *matrix);
+
+static
+void
+spmat_list_initialise_rows_numbers(matrix_t *mat);
+
+/**
+ * @see matrix_divide_f on matrix.h
+ */
+static
+result_t
+spmat_list_divide_matrix(matrix_t *matrix,
+        const double * vector_s,
+        int *temp_s_index,
+        matrix_t **matrix1_out,
+        matrix_t **matrix2_out);
+
+
+/* Virtual Table *************************************************************/
+const matrix_vtable_t SPMAT_LIST_VTABLE = {
+    .add_row = spmat_list_add_row,
+    .free = spmat_list_free,
+    .mult = spmat_list_mult,
+    .mult_vmv = NULL,
+    .get_1norm = spmat_list_get_1norm,
+    .decrease_rows_sums_from_diag = spmat_list_decrease_rows_sums_from_diag,
+    .divide = spmat_list_divide_matrix
+};
+
+
+/* Functions *****************************************************************/
+result_t
+SPMAT_LIST_allocate(int n, bool_t should_initialise_row_numbers, matrix_t **mat_out)
 {
     result_t result = E__UNKNOWN;
     matrix_t *mat = NULL;
@@ -102,10 +141,10 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 
     /* 2. Initialize */
     (void)memset(mat, 0, sizeof(*mat));
-    mat->add_row = spmat_list_add_row;
-    mat->free = spmat_list_free;
-    mat->mult = spmat_list_mult;
     mat->private = NULL;
+    mat->vtable = &SPMAT_LIST_VTABLE;
+    mat->n = n;
+    mat->type = MATRIX_TYPE_SPMAT_LIST;
 
     /* 3. spmat struct */
     spmat_data = (spmat_data_t *)malloc(sizeof(*spmat_data));
@@ -116,13 +155,17 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     (void)memset(spmat_data, 0, sizeof(*spmat_data));
 
     /* 4. Rows array */
+    /* 4.1. Allocate */
     rows_array_size = n * sizeof(*rows_array);
     rows_array = (spmat_row_t *)malloc(rows_array_size);
     if (NULL == rows_array) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
+    /* 4.2. Initialise as NULL, sum 0.0, index 0 */
     (void)memset(rows_array, 0, rows_array_size);
+
+    /* 4.3. Assign rows */
     spmat_data->rows = rows_array;
 
     /* 5. Columns sums */
@@ -134,8 +177,21 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     (void)memset(columns_sum, 0, sizeof(*columns_sum) * n);
     spmat_data->columns_sum = columns_sum;
 
+    /* Temp buffer */
+    spmat_data->temp_buffer = (double *)malloc(sizeof(*columns_sum) * n);
+    if (NULL == spmat_data->temp_buffer) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
+    /* 7. Validate matrix */
     mat->private = (void *)spmat_data;
 
+    /* 8. Initialise row's indexes in increasing order */
+    if (should_initialise_row_numbers) {
+        spmat_list_initialise_rows_numbers(mat);
+    }
+    
     DEBUG_PRINT("%s: addr %p n=%d\n", __func__, (void *)mat, n);
     /* Success */
     *mat_out = mat;
@@ -175,6 +231,7 @@ spmat_list_free(matrix_t *mat)
             }
             
             FREE_SAFE(spmat_data->columns_sum);
+            FREE_SAFE(spmat_data->temp_buffer);
             FREE_SAFE(spmat_data);
             mat->private = NULL;
         }
@@ -300,50 +357,6 @@ l_cleanup:
     return;
 }
 
-static
-    result_t
-spmat_list_create_s_indexes(const double * vector_s,
-        int length,
-        int **s_indexes_out,
-        int *matrix1_n_out)
-{
-    result_t result = E__UNKNOWN;
-    int *s_indexes = NULL;
-    int i = 0;
-    int index_1 = 0;
-    int index_2 = 0;
-
-    s_indexes = (int *)malloc(sizeof(*s_indexes) * length);
-    if (NULL == s_indexes) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
-
-    /* Go over the s-vector */
-    for (i = 0 ; i < length ; ++i) {
-        if (1 == vector_s[i]) {
-            s_indexes[i] = index_1;
-            ++index_1;
-        } else if (-1 == vector_s[i]) {
-            s_indexes[i] = index_2;
-            ++index_2;
-        } 
-    }
-
-    /* Success */
-    *s_indexes_out = s_indexes;
-    *matrix1_n_out = index_1;
-
-    result = E__SUCCESS;
-l_cleanup:
-
-    if (E__SUCCESS != result) {
-        FREE_SAFE(s_indexes);
-    }
-
-    return result;
-}
-
 /**
  *
  * @param relevant_value 1 or -1 accordingly to the values belong to the given reduced row
@@ -427,9 +440,11 @@ l_cleanup:
     return result;
 }
 
+static
 result_t
-SPMAT_LIST_divide_matrix(const matrix_t *matrix,
+spmat_list_divide_matrix(matrix_t *matrix,
         const double * vector_s,
+        int *temp_s_indexes,
         matrix_t **matrix1_out,
         matrix_t **matrix2_out)
 {
@@ -439,7 +454,6 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
     int i = 0;
     int matrix1_n = 0;
     double scanned_s_value = 0.0;
-    int *s_indexes = NULL;
     int scanned_s_index = 0;
     spmat_row_t *relevant_row_pointer = NULL;
 
@@ -460,22 +474,19 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
     }
 
     /* 1. Create s-indexes vector, get matrix1's length */
-    result = spmat_list_create_s_indexes(vector_s, matrix->n, &s_indexes, &matrix1_n);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
+    matrix1_n = VECTOR_create_s_indexes(vector_s,
+                                     matrix->n,
+                                     temp_s_indexes);
 
     /* 2. Create matrixes as spmat lists */
     /* 2.1. Matrix 1 */
-    result = MATRIX_create_matrix(matrix1_n, MATRIX_TYPE_SPMAT_LIST, &matrix1);
+    result = SPMAT_LIST_allocate(matrix1_n, FALSE, &matrix1);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
     /* 2.2. Matrix 2 */
-    result = MATRIX_create_matrix(matrix->n - matrix1_n,
-                                  MATRIX_TYPE_SPMAT_LIST,
-                                  &matrix2);
+    result = SPMAT_LIST_allocate(matrix->n - matrix1_n, FALSE, &matrix2);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -485,7 +496,7 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
         /* 3.1. Get the relevant s-value (1=matrix1, -1=matrix2) */
         scanned_s_value = vector_s[i]; /* 1 or -1 */
         /* 3.2. Get the row index within the selected matrix */
-        scanned_s_index = s_indexes[i];
+        scanned_s_index = (int)temp_s_indexes[i];
 
         /* 3.3. Get the actual row to be added */
         if (1.0 == scanned_s_value) {
@@ -501,7 +512,7 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
         result = spmat_list_reduce_row(&GET_ROW(matrix, i),
                 vector_s,
                 scanned_s_value,
-                s_indexes,
+                temp_s_indexes,
                 relevant_row_pointer);
         if (E__SUCCESS != result) {
             goto l_cleanup;
@@ -515,8 +526,6 @@ SPMAT_LIST_divide_matrix(const matrix_t *matrix,
     result = E__SUCCESS;
 l_cleanup:
 
-    FREE_SAFE(s_indexes);
-
     if (E__SUCCESS != result) {
         MATRIX_FREE_SAFE(matrix1);
         MATRIX_FREE_SAFE(matrix2);
@@ -525,7 +534,7 @@ l_cleanup:
     return result;
 }
 
-    void
+void
 SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
 {
     spmat_row_t *relevant_row_pointer = NULL;
@@ -578,20 +587,14 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
 
 }
 
-    result_t
-SPMAT_LIST_get_1norm(const matrix_t *matrix, double *norm_out)
+static
+double
+spmat_list_get_1norm(const matrix_t *matrix)
 {
-    result_t result = E__SUCCESS;
     double norm = 0.0;
     const spmat_data_t *data = NULL;
     const double *columns_sum = NULL;
     int i = 0;
-
-    /* 0. Input validation */
-    if ((NULL == matrix) || (NULL == norm_out)) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
 
     /* Go over all the columns' norms */
     data = GET_SPMAT_DATA(matrix);
@@ -600,18 +603,13 @@ SPMAT_LIST_get_1norm(const matrix_t *matrix, double *norm_out)
         norm = fabs(MAX(norm, columns_sum[i]));
     }
 
-    /* Success */
-    *norm_out = norm;
-
-    result = E__SUCCESS;
-l_cleanup:
-
-    return result;
+    return norm;
 }
 
 
-    result_t
-SPMAT_LIST_decrease_rows_sums_from_diag(matrix_t *matrix)
+static
+result_t
+spmat_list_decrease_rows_sums_from_diag(matrix_t *matrix)
 {
     result_t result = E__UNKNOWN;
     double *line_vector_tmp = NULL;
@@ -624,14 +622,8 @@ SPMAT_LIST_decrease_rows_sums_from_diag(matrix_t *matrix)
         goto l_cleanup;
     }
 
-    /* 1. Allocate temp buffer */
-    line_vector_tmp = (double *)malloc(sizeof(*line_vector_tmp) * matrix->n);
-    if (NULL == line_vector_tmp) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
+    line_vector_tmp = GET_SPMAT_DATA(matrix)->temp_buffer;
     (void)memset(line_vector_tmp, 0, sizeof(*line_vector_tmp) * matrix->n);
-
     for (i = 0 ; i < matrix->n ; ++i) {
         row_sum = GET_ROW(matrix, i).sum;
         line_vector_tmp[i] = row_sum;
@@ -645,8 +637,6 @@ SPMAT_LIST_decrease_rows_sums_from_diag(matrix_t *matrix)
     /* Success */
     result = E__SUCCESS;
 l_cleanup:
-
-    FREE_SAFE(line_vector_tmp);
 
     return result;
 }
@@ -684,23 +674,12 @@ l_cleanup:
     return result;
 }
 
-    result_t
-SPMAT_LIST_initialise_rows_numbers(matrix_t *mat)
+void
+spmat_list_initialise_rows_numbers(matrix_t *mat)
 {
-    result_t result = E__UNKNOWN;
     int i = 0;
-
-    if (NULL == mat) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
 
     for (i = 0 ; i < mat->n ; ++i) {
         GET_ROW(mat, i).index = i;
     }
-
-    result = E__SUCCESS;
-l_cleanup:
-
-    return result;
 }

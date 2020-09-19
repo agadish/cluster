@@ -104,7 +104,7 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
     }
 
     /* 1.2. Multiply Av */
-    matrix->mult(matrix, eigen_vector, av);
+    MATRIX_MULT(matrix, eigen_vector, av);
 
     /* 2. Multiply v with Av */
     eigen_value_non_normalized = VECTOR_scalar_multiply(eigen_vector, av, matrix->n);
@@ -145,10 +145,7 @@ cluster_divide(matrix_t *input,
 
     /* 1. Matrix shifting */
     /* 1.1. Calculate 1-norm shifting */
-    result = SPMAT_LIST_get_1norm(input, &onenorm);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
+    onenorm = MATRIX_GET_1NORM(input);
     DEBUG_PRINT("1norm=%f", onenorm);
 
     /* 1.2. Add 1-norm to the diag */
@@ -223,7 +220,7 @@ cluster_divide(matrix_t *input,
     }
 
     /* 5.2. Bs: Multiply B with s */
-    input->mult(input, s_vector, bs);
+    MATRIX_MULT(input, s_vector, bs);
 
     /* 5.3. sTBs: Multiply s_transposed with Bs */
     stbs = VECTOR_scalar_multiply(s_vector, bs, input->n);
@@ -257,7 +254,7 @@ cluster_sub_divide(matrix_t *input,
 {
     result_t result = E__UNKNOWN;
 
-    result = SPMAT_LIST_decrease_rows_sums_from_diag(input);
+    result = MATRIX_DECREASE_ROWS_SUMS_FROM_DIAG(input);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -307,6 +304,7 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
     double *s_vector = NULL;
     matrix_t *group1 = NULL;
     matrix_t *group2 = NULL;
+    int *temp_s_indexes = NULL;
 
     /* 0. Input validation */
     if ((NULL == initial_matrix) || (NULL == output_file)) {
@@ -323,6 +321,12 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
 
     s_vector = (double *)malloc(initial_matrix->n * sizeof(*s_vector));
     if (NULL == s_vector) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
+    temp_s_indexes = (int *)malloc(initial_matrix->n * sizeof(*temp_s_indexes));
+    if (NULL == temp_s_indexes) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
@@ -363,7 +367,11 @@ CLUSTER_divide_repeatedly(matrix_t *initial_matrix, division_file_t *output_file
         }
 
         /* If we are here the netwrk is divisible */
-        result = SPMAT_LIST_divide_matrix(current_matrix, s_vector, &group1, &group2);
+        result = MATRIX_DIVIDE(current_matrix,
+                               s_vector,
+                               temp_s_indexes,
+                               &group1,
+                               &group2);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
@@ -433,6 +441,7 @@ l_cleanup:
 
     FREE_SAFE(p_group);
     FREE_SAFE(s_vector);
+    FREE_SAFE(temp_s_indexes);
 
     return result;
 }

@@ -2,7 +2,7 @@
  * @file spmat_array.c
  * @purpose Sparse matrix implemented using arrays
  */
-/* Includes **************************************************************************************/
+/* Includes ******************************************************************/
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,11 +13,12 @@
 #include "common.h"
 
 
-/* Structs ***************************************************************************************/
+/* Structs *******************************************************************/
 typedef struct spmat_array_s {
-    /* 3 arrays representing a sparse matrix: non zero elements array, their indexes array,
-     * and an array of the the first non zero element in every row
-    */
+    /* 3 arrays representing a sparse matrix: non zero elements array, their
+     * indexes array, and an array of the the first non zero element in every
+     * row
+     */
     double *values;
     int *colind;
     int *rowptr;
@@ -25,7 +26,7 @@ typedef struct spmat_array_s {
 } spmat_array_t;
 
 
-/* Functions Declarations ************************************************************************/
+/* Functions Declarations ****************************************************/
 static
 result_t
 spmat_array_add_row(matrix_t *A, const double *row, int i);
@@ -39,7 +40,18 @@ void
 spmat_array_mult(const matrix_t *A, const double *v, double *result);
 
 
-/* Functions *************************************************************************************/
+/* Global Variables **********************************************************/
+const matrix_vtable_t SPMAT_ARRAY_VTABLE = {
+    .add_row = spmat_array_add_row,
+    .free = spmat_array_free,
+    .mult = spmat_array_mult,
+    .mult_vmv = NULL,
+    .get_1norm = NULL,
+    .decrease_rows_sums_from_diag = NULL
+};
+
+
+/* Functions *****************************************************************/
 result_t
 SPMAT_ARRAY_allocate(int n, int nnz, matrix_t **mat_out)
 {
@@ -56,10 +68,10 @@ SPMAT_ARRAY_allocate(int n, int nnz, matrix_t **mat_out)
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
-    mat->add_row = spmat_array_add_row;
-    mat->free = spmat_array_free;
-    mat->mult = spmat_array_mult;
     mat->private = NULL;
+    mat->vtable = &SPMAT_ARRAY_VTABLE;
+    mat->n = n;
+    mat->type = MATRIX_TYPE_SPMAT_ARRAY;
 
     spmat_array_data = (spmat_array_t *)malloc(sizeof(spmat_array_t));
     if (NULL == spmat_array_data) {
@@ -163,7 +175,10 @@ spmat_array_add_row(matrix_t *mat, const double *data, int row_index)
         if (0 != number) {
             if (FALSE == first_found) {
                 first_found = TRUE;
-                for (k = row_index; ((k >= 0) && (rowptr[k] == rowptr[n])) ; --k) {
+                for (k = row_index;
+                     ((k >= 0) && (rowptr[k] == rowptr[n])) ;
+                     --k)
+                {
                     rowptr[k] = spmat_array_data->last_index;
                 }
             }
@@ -205,7 +220,8 @@ spmat_array_mult(const matrix_t *mat, const double *v, double *result)
         non_zero_in_row = rowptr[row + 1] - rowptr[row];
         if (0 != non_zero_in_row) {
             for (i = 0 ; i < non_zero_in_row ; ++i){
-                sum += (values[first_index_row + i] * v[colind[first_index_row + i]]);
+                sum += (values[first_index_row + i] *
+                        v[colind[first_index_row + i]]);
             }
         }
 

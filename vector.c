@@ -165,3 +165,26 @@ VECTOR_is_close(const double * vector_a,
     return result;
 }
 
+
+int
+VECTOR_create_s_indexes(const double * vector_s,
+                        int length,
+                        int *s_indexes)
+{
+    int i = 0;
+    int index_1 = 0;
+    int index_2 = 0;
+
+    /* Go over the s-vector */
+    for (i = 0 ; i < length ; ++i) {
+        if (1 == vector_s[i]) {
+            s_indexes[i] = index_1;
+            ++index_1;
+        } else if (-1 == vector_s[i]) {
+            s_indexes[i] = index_2;
+            ++index_2;
+        } 
+    }
+
+    return index_1;
+}
