@@ -70,26 +70,29 @@ l_cleanup:
 }
 
 result_t
-DIVISION_FILE_write_matrix(division_file_t *division_file, const matrix_t *matrix)
+DIVISION_FILE_write_matrix(division_file_t *division_file,
+                           const int *indexes,
+                           int length)
 {
     result_t result = E__UNKNOWN;
     size_t result_write = 0;
+    int i = 0;
 
     /* 0. Input validation */
-    if ((NULL == division_file) || (NULL == matrix)) {
+    if ((NULL == division_file) || (NULL == indexes)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
 
-    if (0 == matrix->n) {
+    if (0 == length) {
         /* Nothing to write */
         result = E__SUCCESS;
         goto l_cleanup;
     }
 
     /* 1. Write n to file */
-    result_write = fwrite(&matrix->n,
-                          sizeof(matrix->n),
+    result_write = fwrite(&length,
+                          sizeof(length),
                           1,
                           division_file->file);
     if (1 != result_write) {
@@ -98,9 +101,15 @@ DIVISION_FILE_write_matrix(division_file_t *division_file, const matrix_t *matri
     }
 
     /* 2. Write neighbors to file */
-    result = SPMAT_LIST_write_neighbors(matrix, division_file->file);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
+    for (i = 0 ; i < length ; ++i) {
+        result_write = fwrite(&indexes[i],
+                              sizeof(*indexes),
+                              1,
+                              division_file->file);
+        if (1 != result_write) {
+            result = E__FWRITE_ERROR;
+            goto l_cleanup;
+        }
     }
 
     /* 3. Increase matrix count */

@@ -3,7 +3,7 @@
  * @purpose 
  */
 
-/* Includes **************************************************************************************/
+/* Includes ******************************************************************/
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -16,33 +16,32 @@
 #include "eigen.h"
 #include "vector.h"
 #include "config.h"
+#include "submatrix.h"
+#include "spmat_list.h"
 
 
-/* Functions ************************************************************************************/
+/* Functions *****************************************************************/
 result_t
-MATRIX_calculate_eigen(const matrix_t *input,
-                       double *b_vector,
-                       double **eigen_out)
+EIGEN_calculate_eigen(const submatrix_t *smat,
+                      double *b_vector,
+                      double onenorm,
+                      double *eigen)
 {
     result_t result = E__UNKNOWN;
-    double * original_vector_res = NULL;
-    double * vector_res = NULL;
-    double * temp = NULL;
+    double *original_vector_res = NULL;
+    double *vector_res = NULL;
+    double *temp = NULL;
+    int n = 0;
 
-    if ((NULL == input) || (NULL == b_vector) || (NULL == eigen_out)) {
+    if ((NULL == smat) || (NULL == b_vector)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
 
     /* 1. Allocate vectors */
     /* 1.1. Create two vectors: for result, and previous result */
-    vector_res = (double *)malloc(sizeof(*vector_res) * input->n);
-    if (NULL == vector_res) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
-    original_vector_res = vector_res;
-
+    n = smat->adj->original->n;
+    original_vector_res = eigen;
 
     /* 2. Multiply the matrix and vector until the previous result is close enough */
     /* 2.1. Swap before first iteration */
@@ -56,27 +55,22 @@ MATRIX_calculate_eigen(const matrix_t *input,
         vector_res = b_vector;
         b_vector = temp;
 
-        MATRIX_MULT(input, b_vector, vector_res);
-        result = VECTOR_normalize(vector_res, input->n);
+        SUBMAT_SPMAT_LIST_mult(smat, b_vector, onenorm, vector_res);
+        result = VECTOR_normalize(vector_res, n);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
-    } while (!VECTOR_is_close(vector_res, b_vector, input->n, EPSILON));
+    } while (!VECTOR_is_close(vector_res, b_vector, n, EPSILON));
 
     /* 3. Make sure the result is in prev_vector_res */
     if (original_vector_res == b_vector) {
-        (void)memcpy(original_vector_res, vector_res, sizeof(*vector_res) * input->n);
+        (void)memcpy(original_vector_res, vector_res, sizeof(*vector_res) * n);
     }
 
     /* Success */
-    *eigen_out = original_vector_res;
-
     result = E__SUCCESS;
 
 l_cleanup:
-    if (E__SUCCESS != result) {
-        FREE_SAFE(original_vector_res);
-    }
 
     return result;
 }

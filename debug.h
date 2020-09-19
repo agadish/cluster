@@ -18,12 +18,5 @@
 #define DEBUG_PRINT(...) 
 #endif
 
-#ifdef __DEBUG__
-#define STATIC
-#else /* __DEBUG__ */
-#define STATIC static
-#endif /* __DEBUG__ */
-
-
 #endif /* __DEBUG_H__ */
 

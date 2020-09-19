@@ -16,6 +16,7 @@
 #include "common.h"
 #include "debug.h"
 #include "vector.h"
+#include "submatrix.h"
 
 
 /* Structs *******************************************************************/
@@ -44,7 +45,7 @@ typedef struct spmat_data_s {
 #define GET_ROW(matrix, row_index) (GET_ROWS_ARRAY(matrix)[row_index])
 
 
-/* Functions Declarations ************************************************************************/
+/* Functions Declarations ****************************************************/
 /**
  * @purpose updating a row in a sparse matrix implemented by linked lists
  * @param A input Matrix
@@ -79,23 +80,6 @@ void
 spmat_list_mult(const matrix_t *A, const double *v, double *result);
 
 /**
- * @purpose creating a list of incrementing indexes for each one of the groups
- *          according to values of s vector
- * @param vector_s input s vector
- * @param length length of s vector
- * @param s_indexes_out output result list
- * @param matrix1_n_out length of first group after division
- *
- * @return One of result_t values
- * @remark vector_s must be valid with given length, and values 1 or -1
- */
-static
-result_t
-spmat_list_create_s_indexes(const double * vector_s,
-                            int length,
-                            int **s_indexes_out,
-                            int *matrix1_n_out);
-/**
  * @purpose reducing a row inside a sparse matrix to values only
  *          relevant to a specific group after division
  * @param original_row input row list from sparse matrix
@@ -128,18 +112,6 @@ void
 spmat_list_initialise_rows_numbers(matrix_t *mat);
 
 /**
- * @purpose multiplying row vector, matrix, and same vector as col vector
- * @param mat input matrix
- * @param v input vector
-
- * @return result of multiplication
- *
- */
-static
-double
-spmat_list_matrix_vector_sandwich(const matrix_t *mat, const double *v);
-
-/**
  * @see matrix_divide_f on matrix.h
  */
 static
@@ -156,7 +128,7 @@ const matrix_vtable_t SPMAT_LIST_VTABLE = {
     .add_row = spmat_list_add_row,
     .free = spmat_list_free,
     .mult = spmat_list_mult,
-    .mult_vmv = spmat_array_matrix_vector_sandwich,
+    .mult_vmv = NULL,
     .get_1norm = spmat_list_get_1norm,
     .decrease_rows_sums_from_diag = spmat_list_decrease_rows_sums_from_diag,
     .divide = spmat_list_divide_matrix
@@ -737,6 +709,7 @@ spmat_list_initialise_rows_numbers(matrix_t *mat)
     }
 }
 
+#if 0
 static
 double
 spmat_array_matrix_vector_sandwich(const matrix_t *mat, const double *v)
@@ -761,4 +734,204 @@ spmat_array_matrix_vector_sandwich(const matrix_t *mat, const double *v)
     }
 
     return result;
+}
+#endif
+
+
+double
+SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *submatrix)
+{
+    const matrix_t *matrix = NULL;
+    double norm = 0.0;
+    double current_row_norm = 0.0;
+    int row_g = 0;
+    int row_i = 0;
+    int col_g = 0;
+    int col_i = 0;
+    node_t *s = NULL;
+
+    matrix = submatrix->adj->transposed;
+    /* The 1-norm is the max column abs sum.
+     * We will go over the transpoed matrix' *ROWS* */
+
+    for (row_g = 0 ; row_g < submatrix->g_length ; ++row_g) {
+        /* Go over the sub rows */
+        current_row_norm = 0.0;
+        row_i = submatrix->g[row_g];
+        s = GET_ROW(matrix, row_i).list->first;
+        for (col_g = 0 ;  col_g < submatrix->g_length ; ++col_g) {
+            /* Go over the sub columns */
+            col_i = submatrix->g[row_i];
+
+            /* 1. Set s as the next member with greater/equal index */
+            for (; (NULL != s) && (s->index) > col_i ; s = s->next);
+
+            /* 2. Check if row is over */
+            if (NULL == s) {
+                /* Nothing to do in this row */
+                break;
+            }
+
+            /* 3. Check if the found index is what we're searching for */
+            if (col_i == s->index) {
+                current_row_norm += fabs(s->value);
+            }
+        }
+
+        norm = MAX(norm, current_row_norm);
+    }
+
+    return norm;
+}
+
+static
+double
+submat_spmat_list_mult_row_with_s(const submatrix_t *submatrix,
+                                  int row,
+                                  double diag_add,
+                                  const double *s_vector)
+{
+    double result = 0.0;
+    node_t *s = NULL;
+    int col_g = 0;
+    int col_i = 0;
+    double a = 0.0;
+    double expected_value = 0.0;
+    bool_t is_zero = TRUE;
+    const int *m = NULL;
+    double row_sum = 0.0;
+
+    m = submatrix->adj->neighbors;
+    s = GET_ROW(submatrix->adj->original, row).list->first;
+
+    /* Go over the columns */
+    for (col_g = 0 ;  col_g < submatrix->g_length ; ++col_g) {
+        col_i = submatrix->g[col_g];
+
+        /* Skip irrelevant values from original matrix */
+        while ((NULL != s) && (s->index < col_i)) {
+            s = s->next;
+        }
+
+        /* If column is non-zero take s-value */
+        is_zero = (NULL == s) || (s->index > col_i);
+        if (is_zero) {
+            a = 0.0;
+        } else {
+            a = s->value;
+            row_sum += a;
+            s = s->next;
+        }
+
+        expected_value = m[row] * m[col_i] / ((double)(submatrix->adj->M));
+
+        result += (a - expected_value);
+    }
+
+    result += (diag_add - row_sum) * s_vector[row];
+
+    return result;
+}
+
+
+double
+SUBMAT_SPMAT_LIST_calculate_q(const submatrix_t *submatrix,
+                              const double *s_vector,
+                              double add_to_diag)
+{
+    double current_row_mul = 0.0;
+    double mult_vmv = 0.0;
+    int row_g = 0;
+    int row_i = 0;
+
+    /* Multiply each row with s-vector */
+    for (row_g = 0 ; row_g < submatrix->g_length ; ++row_g) {
+        current_row_mul = 0.0;
+        row_i = submatrix->g[row_g];
+
+        /* Add to result v[row] times M[row, :]*v */
+        current_row_mul = submat_spmat_list_mult_row_with_s(submatrix,
+                                                            row_i,
+                                                            add_to_diag,
+                                                            s_vector);
+        mult_vmv += (s_vector[row_i] * current_row_mul);
+    }
+
+    return mult_vmv / 2;
+}
+
+result_t
+SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
+                        const double *s_vector,
+                        submatrix_t *split1,
+                        submatrix_t *split2)
+{
+    result_t result = E__UNKNOWN;
+    int i = 0;
+    int split1_length = 0;
+    int split2_length = 0;
+
+    /* 0. Input validation */
+    /* 0.1. Null arguments */
+    if ((NULL == smat) || (NULL == s_vector) ||
+            (NULL == split1) || (NULL == split2)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* 0.2. Input matrix must be spmat list */
+    if (MATRIX_TYPE_SPMAT_LIST != smat->adj->original->type) {
+        result = E__INVALID_MATRIX_TYPE;
+        goto l_cleanup;
+    }
+
+    /* XXX: The g-vector is allocated for size n, the g-vector is
+     *      non-ascending therefore we will never overflow this vector */
+    /* 2. Update g vector */
+    for (i = 0 ; i < smat->g_length ; ++i) {
+        if (1.0 == s_vector[i]) {
+            split1->g[split1_length] = smat->g[i];
+            ++split1_length;
+        } else { /* Equals -1.0 */
+            split2->g[split2_length] = smat->g[i];
+            ++split2_length;
+        }
+    }
+    /* 3. Update g lengths */
+    split1->g_length = split1_length;
+    split2->g_length = split2_length;
+
+    /* Success */
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}
+
+result_t
+SPMAT_LIST_transpose(const matrix_t *matrix, matrix_t **transposed_out)
+{
+    UNUSED_ARG(matrix);
+    UNUSED_ARG(transposed_out);
+    return E__SUCCESS;
+}
+
+void
+SUBMAT_SPMAT_LIST_mult(const submatrix_t *submatrix,
+                       const double *vector,
+                       double diag_add,
+                       double *result)
+{
+    int row_g = 0;
+    int row_i = 0;
+    double current_row_mul = 0.0;
+
+    for (row_g = 0 ; row_g < submatrix->g_length ; ++row_g) {
+        row_i = submatrix->g[row_g];
+        current_row_mul = submat_spmat_list_mult_row_with_s(submatrix,
+                                                            row_i,
+                                                            diag_add,
+                                                            vector);
+        result[row_g] = current_row_mul;
+    }
 }

@@ -6,12 +6,16 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "results.h"
 #include "matrix.h"
 #include "spmat_array.h"
 #include "common.h"
+#include "submatrix.h"
 
+/* Macros ********************************************************************/
+#define GET_ARRAY(mat) ((spmat_array_t *)((mat)->private))
 
 /* Structs *******************************************************************/
 typedef struct spmat_array_s {
@@ -267,3 +271,57 @@ spmat_array_mult(const matrix_t *mat, const double *v, double *result)
     }
 }
 
+#if 0
+double
+SUBMAT_SPMAT_ARRAY_get_1norm(const submatrix_t *submatrix)
+{
+    const matrix_t *matrix = NULL;
+    const spmat_array_t *arr = NULL;
+    int i = 0;
+    double current_row_sum = 0.0;
+    double max_row_sum = 0.0;
+    bool_t is_last_in_row = FALSE;
+
+    /* The 1-norm is the max column abs sum. We will go over the transpoed
+     * matrix' rows */
+    matrix = submatrix->transposed;
+    arr = GET_ARRAY(matrix);
+
+    for (i = 0 ; i < matrix->n ; ++i) {
+        current_row_sum += fabs(arr->values[i]);
+
+        is_last_in_row = (arr->rowptr[i + 1] > arr->rowptr[i]);
+        if (is_last_in_row) {
+            max_row_sum = MAX(current_row_sum, max_row_sum);
+            current_row_sum = 0;
+        }
+    }
+
+    return max_row_sum;
+}
+
+double
+SUBMAT_SPMAT_ARRAY_mult_vmv(const submatrix_t *submatrix, const double *vector)
+{
+    int i = 0;
+    double total_mult = 0.0;
+    double row_result = 0.0;
+    const matrix_t *matrix = NULL;
+    const spmat_array_t *arr = NULL;
+    bool_t is_last_in_row = FALSE;
+
+    matrix = submatrix->original;
+    arr = GET_ARRAY(matrix);
+
+    for (i = 0 ; i < matrix->n ; ++i) {
+        row_result += arr->values[i] * vector[arr->colind[i]];
+        is_last_in_row = (row_scanner[1] > row_scanner[0]);
+        if (is_last_in_row) {
+            total_mult = 
+            max_row_sum = MAX(current_row_sum, max_row_sum);
+            current_row_sum = 0;
+        }
+    }
+
+}
+#endif

@@ -5,21 +5,18 @@
 #ifndef __EIGEN_H__
 #define __EIGEN_H__
 
-/* Includes **************************************************************************************/
+/* Includes ******************************************************************/
 #include "results.h"
 #include "matrix.h"
-#include "matrix.h"
+#include "submatrix.h"
 
 
-/* Macros ****************************************************************************************/
-
-
-/* Functions *************************************************************************************/
+/* Functions *****************************************************************/
 /**
  * @purpose fivides eigenvector as close as epsilon
  * @param spmat The input matrix
  * @param b_vecor A pre initialized b_vector. Will be modified!
- * @param eigen_out The calculated eigen value
+ * @param eigen The calculated eigen vector
  *
  * @return One of result_t values
  *
@@ -27,8 +24,9 @@
  * @remark v_vector will be modified
  */
 result_t
-MATRIX_calculate_eigen(const matrix_t *input,
-                       double *b_vector,
-                       double **eigen_out);
+EIGEN_calculate_eigen(const submatrix_t *smat,
+                      double *b_vector,
+                      double onenorm,
+                      double *eigen);
 
 #endif /* __EIGEN_H__ */

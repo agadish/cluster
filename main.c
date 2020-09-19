@@ -30,7 +30,6 @@ int main(int argc, const char * argv[])
 {
     result_t result = E__UNKNOWN;
     adjacency_matrix_t *adj_matrix = NULL;
-    matrix_t *mod_matrix = NULL;
     matrix_t *group1 = NULL;
     matrix_t *group2 = NULL;
     division_file_t *division_file = NULL;
@@ -60,20 +59,11 @@ int main(int argc, const char * argv[])
         goto l_cleanup;
     }
 
-    /* 4. Calculate modularity matrix */
-    result = ADJACENCY_MATRIX_calculate_modularity(adj_matrix,
-                                                   MOD_MATRIX_TYPE,
-                                                   &mod_matrix);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-
     /* 5. Divide. Note: mod_matrix is freed by divide */
-    result = CLUSTER_divide_repeatedly(mod_matrix, division_file);
+    result = CLUSTER_divide_repeatedly(adj_matrix, division_file);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
-    mod_matrix = NULL;
 
     /* 6. Finalize output file */
     result = DIVISION_FILE_finalize(division_file);
@@ -95,7 +85,6 @@ l_cleanup:
     DIVISION_FILE_close(division_file);
     division_file = NULL;
 
-    MATRIX_FREE_SAFE(mod_matrix);
     MATRIX_FREE_SAFE(group1);
     MATRIX_FREE_SAFE(group2);
 

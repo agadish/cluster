@@ -53,41 +53,18 @@ VECTOR_scalar_multiply(const double * l1, const double * l2, size_t n)
     return result;
 }
 
-result_t
-VECTOR_random_vector(size_t length, double ** vector_out)
+void
+VECTOR_random_vector(size_t length, double *vector)
 {
-    result_t result = E__UNKNOWN;
-    double * vector = NULL;
     size_t i = 0;
     int random_int = 0;
 
-    if (NULL == vector_out) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
-
     srand(time(NULL));
-
-    vector = (double *)malloc(sizeof(*vector) * length);
-    if (NULL == vector) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
 
     for (i = 0 ; i < length ; ++i) {
         random_int = (rand() % 1000);
         vector[i] = (double)random_int;
     }
-
-    *vector_out = vector;
-
-    result = E__SUCCESS;
-l_cleanup:
-    if (E__SUCCESS != result) {
-        FREE_SAFE(vector);
-    }
-
-    return result;
 }
 
 static

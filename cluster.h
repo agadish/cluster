@@ -7,15 +7,15 @@
 
 
  /* Includes **************************************************************************************/
-#include "matrix.h"
-#include "common.h"
 #include "results.h"
 #include "division_file.h"
+#include "adjacency_matrix.h"
 
 
 /* Functions Declarations ************************************************************************/
 result_t
-CLUSTER_divide_repeatedly(matrix_t *matrix, division_file_t *output_file);
+CLUSTER_divide_repeatedly(adjacency_matrix_t *adj,
+                          division_file_t *output_file);
 
 
 #endif /* __CLUSTER_H__ */

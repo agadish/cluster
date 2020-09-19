@@ -24,7 +24,8 @@
  * @param M The total neighbors count (equals edges count times 2)
  */
 typedef struct adjacency_matrix_s {
-    matrix_t *matrix;
+    matrix_t *original;
+    matrix_t *transposed;
     int *neighbors;
     int M;
 } adjacency_matrix_t;
@@ -42,7 +43,7 @@ typedef struct adjacency_matrix_s {
  * @remark adj_matrix must be freed using ADJACENCY_MATRIX_free
  */
 result_t
-ADJACENCY_MATRIX_open(const char * path, adjacency_matrix_t **adj_matrix_out);
+ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **adj_matrix_out);
 
 /**
  * @purpose Free an adjacency matrix which was previously created by
@@ -54,14 +55,6 @@ ADJACENCY_MATRIX_open(const char * path, adjacency_matrix_t **adj_matrix_out);
  */
 void
 ADJACENCY_MATRIX_free(adjacency_matrix_t *adjacency_matrix);
-
-/**
- * @purpose Calculate the modularity matrix of a given adjacency matrix
- */
-result_t
-ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
-                                      matrix_type_t mod_matrix_type,
-                                      matrix_t **mod_matrix_out);
 
 
 #endif /* __ADJACENCY_MATRIX_H__ */

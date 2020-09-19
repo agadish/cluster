@@ -23,7 +23,9 @@ result_t
 DIVISION_FILE_open(const char *path, division_file_t **division_file_out);
 
 result_t
-DIVISION_FILE_write_matrix(division_file_t *division_file, const matrix_t *matrix);
+DIVISION_FILE_write_matrix(division_file_t *division_file,
+                           const int *indexes,
+                           int length);
 
 result_t
 DIVISION_FILE_finalize(division_file_t *division_file);

@@ -27,10 +27,13 @@ double
 VECTOR_scalar_multiply(const double * l1, const double * l2, size_t n);
 
 /**
- * @remark vector_out must be freed later by MATRIX_free
+ * Create a random vector
+ *
+ * @param length The vector's length
+ * @param vector A pre-allocated lenth-sized vector
  */
-result_t
-VECTOR_random_vector(size_t length, double ** vector_out);
+void
+VECTOR_random_vector(size_t length, double *vector);
 
 
 /**
