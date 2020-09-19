@@ -44,7 +44,7 @@ typedef struct spmat_data_s {
 #define GET_ROW(matrix, row_index) (GET_ROWS_ARRAY(matrix)[row_index])
 
 
-/* Functions Declarations ************************************************************************/
+/* Functions Declarations ****************************************************/
 /**
  * @purpose updating a row in a sparse matrix implemented by linked lists
  * @param A input Matrix
@@ -78,23 +78,6 @@ static
 void
 spmat_list_mult(const matrix_t *A, const double *v, double *result);
 
-/**
- * @purpose creating a list of incrementing indexes for each one of the groups
- *          according to values of s vector
- * @param vector_s input s vector
- * @param length length of s vector
- * @param s_indexes_out output result list
- * @param matrix1_n_out length of first group after division
- *
- * @return One of result_t values
- * @remark vector_s must be valid with given length, and values 1 or -1
- */
-static
-result_t
-spmat_list_create_s_indexes(const double * vector_s,
-                            int length,
-                            int **s_indexes_out,
-                            int *matrix1_n_out);
 /**
  * @purpose reducing a row inside a sparse matrix to values only
  *          relevant to a specific group after division
@@ -150,22 +133,31 @@ spmat_list_divide_matrix(matrix_t *matrix,
         matrix_t **matrix1_out,
         matrix_t **matrix2_out);
 
+/**
+ * @see matrix_write_neighbors_f on matrix.h
+ */
+static
+result_t
+spmat_list_write_neighbors(const matrix_t *matrix, FILE *file);
+
 
 /* Virtual Table *************************************************************/
 const matrix_vtable_t SPMAT_LIST_VTABLE = {
     .add_row = spmat_list_add_row,
     .free = spmat_list_free,
     .mult = spmat_list_mult,
-    .mult_vmv = spmat_array_matrix_vector_sandwich,
+    .mult_vmv = spmat_list_matrix_vector_sandwich,
     .get_1norm = spmat_list_get_1norm,
     .decrease_rows_sums_from_diag = spmat_list_decrease_rows_sums_from_diag,
-    .divide = spmat_list_divide_matrix
+    .divide = spmat_list_divide_matrix,
+    .write_neighbors = spmat_list_write_neighbors,
+    .initialise_row_numbers = spmat_list_initialise_rows_numbers,
 };
 
 
 /* Functions *****************************************************************/
 result_t
-SPMAT_LIST_allocate(int n, bool_t should_initialise_row_numbers, matrix_t **mat_out)
+SPMAT_LIST_allocate(int n, matrix_t **mat_out)
 {
     result_t result = E__UNKNOWN;
     matrix_t *mat = NULL;
@@ -239,11 +231,6 @@ SPMAT_LIST_allocate(int n, bool_t should_initialise_row_numbers, matrix_t **mat_
 
     /* 7. Validate matrix */
     mat->private = (void *)spmat_data;
-
-    /* 8. Initialise row's indexes in increasing order */
-    if (should_initialise_row_numbers) {
-        spmat_list_initialise_rows_numbers(mat);
-    }
     
     DEBUG_PRINT("%s: addr %p n=%d\n", __func__, (void *)mat, n);
     /* Success */
@@ -385,7 +372,7 @@ l_cleanup:
 } 
 
 static
-    void
+void
 spmat_list_mult(const matrix_t *mat, const double *v, double *multiplication_result)
 {
     result_t result = E__UNKNOWN;
@@ -533,13 +520,13 @@ spmat_list_divide_matrix(matrix_t *matrix,
 
     /* 2. Create matrixes as spmat lists */
     /* 2.1. Matrix 1 */
-    result = SPMAT_LIST_allocate(matrix1_n, FALSE, &matrix1);
+    result = SPMAT_LIST_allocate(matrix1_n, &matrix1);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
     /* 2.2. Matrix 2 */
-    result = SPMAT_LIST_allocate(matrix->n - matrix1_n, FALSE, &matrix2);
+    result = SPMAT_LIST_allocate(matrix->n - matrix1_n, &matrix2);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -694,9 +681,9 @@ l_cleanup:
     return result;
 }
 
-
+static
 result_t
-SPMAT_LIST_write_neighbors(const matrix_t *matrix, FILE *file)
+spmat_list_write_neighbors(const matrix_t *matrix, FILE *file)
 {
     result_t result = E__UNKNOWN;
     size_t result_write = 0;
@@ -727,6 +714,7 @@ l_cleanup:
     return result;
 }
 
+static
 void
 spmat_list_initialise_rows_numbers(matrix_t *mat)
 {
@@ -739,26 +727,28 @@ spmat_list_initialise_rows_numbers(matrix_t *mat)
 
 static
 double
-spmat_array_matrix_vector_sandwich(const matrix_t *mat, const double *v)
+spmat_list_matrix_vector_sandwich(const matrix_t *mat, const double *v)
 {
     spmat_row_t *rows_array = NULL;
     double row_sum = 0.0;
     double result = 0.0;
+    node_t *scanner = NULL;
     int row = 0;
 
     rows_array = GET_ROWS_ARRAY(mat);
     for (row = 0 ; row < mat->n ; ++row) {
-        if (rows_array[i].list == NULL){
+        if (NULL == rows_array[row].list) {
         	continue;
-        } else {
-            for (scanner = rows_array[i].list->first ; NULL != scanner ; scanner = scanner->next) {
-                row_sum += (scanner->value * v[scanner->index]);
-            }
         }
 
-        result += row_sum * v[row]
+        for (scanner = rows_array[row].list->first ; NULL != scanner ; scanner = scanner->next) {
+            row_sum += (scanner->value * v[scanner->index]);
+        }
+
+        result += row_sum * v[row];
         row_sum = 0.0;
     }
 
     return result;
 }
+

@@ -41,6 +41,15 @@
 #define MATRIX_DIVIDE(m, s_vec, s_ind, m1_out, m2_out) \
     MATRIX_VTABLE((m))->divide((m), (s_vec), (s_ind), (m1_out), (m2_out))
 
+#define MATRIX_INITIALISE_ROW_NUMBERS(m) \
+    MATRIX_VTABLE((m))->initialise_row_numbers((m))
+
+#define MATRIX_WRITE_NEIGHBORS(m, f) \
+    MATRIX_VTABLE((m))->write_neighbors((m), (f))
+
+#define MATRIX_GET_ROW(m, buf, row_index) \
+    MATRIX_VTABLE((m))->get_row((m), (buf), (row_index))
+
 #define MATRIX_FREE_SAFE(m) do {                            \
     if (NULL != (m)) {                                      \
         MATRIX_FREE(m);                                     \
@@ -66,6 +75,10 @@ typedef struct matrix_s matrix_t;
  **/
 typedef result_t (*matrix_add_row_f)(matrix_t *matrix,
                                      const double *row,
+                                     int i);
+
+typedef void (*matrix_get_row_f)(matrix_t *matrix,
+                                     double *row,
                                      int i);
 
 /* Frees all resources used by A */
@@ -123,6 +136,15 @@ typedef result_t (*matrix_divide_f)(matrix_t *matrix,
                                     matrix_t **matrix1_out,
                                     matrix_t **matrix2_out);
 
+/**
+ * Write the matrix
+ */
+typedef result_t (*matrix_write_neighbors_f)(const matrix_t *matrix,
+                                             FILE *file);
+
+
+typedef void (*matrix_initialise_row_numbers)(matrix_t *matrix);
+
 
 /* Structs *******************************************************************/
 /**
@@ -130,12 +152,15 @@ typedef result_t (*matrix_divide_f)(matrix_t *matrix,
  **/
 typedef struct matrix_vtable_s {
     matrix_add_row_f add_row;
+    matrix_get_row_f get_row;
     matrix_free_f free;
     matrix_mult_f mult; /* Calculate M*v */
     matrix_mult_vmv_f mult_vmv; /* Calculate v^T*M*v */
     matrix_get_1norm_f get_1norm;
     matrix_decrease_rows_sums_from_diag_f decrease_rows_sums_from_diag;
     matrix_divide_f divide;
+    matrix_write_neighbors_f write_neighbors;
+    matrix_initialise_row_numbers initialise_row_numbers;
 } matrix_vtable_t;
 
 /* A square matrix implementation */

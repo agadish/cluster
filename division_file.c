@@ -98,7 +98,7 @@ DIVISION_FILE_write_matrix(division_file_t *division_file, const matrix_t *matri
     }
 
     /* 2. Write neighbors to file */
-    result = SPMAT_LIST_write_neighbors(matrix, division_file->file);
+    result = MATRIX_WRITE_NEIGHBORS(matrix, division_file->file);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }

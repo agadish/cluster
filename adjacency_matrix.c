@@ -210,15 +210,16 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
     /* 2.2. Go over each row */
     for (row = 0 ; row < adj->matrix->n ; ++row) {
         /* 2.2.1. Calculate each column */
+        MATRIX_GET_ROW(adj->matrix, current_row, row);
+
         for (col = 0 ; col < adj->matrix->n ; ++col) {
             expected_edges = ((double)(adj->neighbors[row]) * (double)(adj->neighbors[col])) / (double)(adj->M);
             /* DEBUG_PRINT("getting matrix at %d,%d (addr=%p)", */
             /*         row, */
             /*         col, */
             /*         (void *)&(MATRIX_RAW_AT(adj->matrix, row, col))); */
-            tmp = MATRIX_RAW_AT(adj->matrix, row, col);
             b_value = tmp - expected_edges;
-            current_row[col] = b_value;
+            current_row[col] -= b_value;
         }
 
         /* 2.2.2. ADd to mod matrix */
@@ -227,6 +228,9 @@ ADJACENCY_MATRIX_calculate_modularity(adjacency_matrix_t *adj,
             goto l_cleanup;
         }
     }
+
+    /* 3. Initialise rows numbers */
+    MATRIX_INITIALISE_ROW_NUMBERS(mod_matrix);
 
     /* Success */
     *mod_matrix_out = mod_matrix;

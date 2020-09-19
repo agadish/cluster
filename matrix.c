@@ -30,7 +30,7 @@ MATRIX_create_matrix(int n, matrix_type_t type, matrix_t **matrix_out)
     switch (type)
     {
     case MATRIX_TYPE_SPMAT_LIST:
-        result = SPMAT_LIST_allocate(n, TRUE, &mat);
+        result = SPMAT_LIST_allocate(n, &mat);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }

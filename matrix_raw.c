@@ -3,7 +3,7 @@
  * @purpose 
  */
 
-/* Includes **************************************************************************************/
+/* Includes ******************************************************************/
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,11 +17,26 @@
 #include "vector.h"
 #include "debug.h"
 
-/* Macros ****************************************************************************************/
-#define RAW_ARRAY(matrix) ((double *)((matrix)->private))
-#define MATRIX_AT(m, i, j) (RAW_ARRAY(m)[((i) * (m)->n) + (j)])
 
-/* Functions Declarations ************************************************************************/
+/* Macros ********************************************************************/
+#define GET_DATA(matrix) ((matrix_raw_data_t *)((matrix)->private))
+#define GET_INDEXES(matrix) (GET_DATA((matrix))->indexes)
+#define GET_ARRAY(matrix) (GET_DATA((matrix))->array)
+#define MATRIX_AT(m, i, j) (GET_ARRAY(m)[((i) * (m)->n) + (j)])
+
+
+/* Structs *******************************************************************/
+/* spmat_row_t * matrix->private: n-sized array of spmat_row_t */
+typedef struct matrix_raw_data_s {
+    /* n*n array contains the data */
+    double *array;
+
+    /* n array contains the indexes */
+    int *indexes;
+} matrix_raw_data_t;
+
+
+/* Functions Declarations ****************************************************/
 /**
  * @purpose Free a matrix which was previously created by matrix_raw_open or MATRIX_RAW_allocate
  *
@@ -84,16 +99,36 @@ matrix_raw_divide(matrix_t *matrix,
                   matrix_t **matrix1_out,
                   matrix_t **matrix2_out);
 
+static
+double
+matrix_raw_mult_vmv(const matrix_t *mat, const double *v);
+
+
+static
+result_t
+matrix_raw_write_neighbors(const matrix_t *matrix, FILE *file);
+
+static
+void
+matrix_raw_initialise_rows_numbers(matrix_t *mat);
+
+static
+void
+matrix_raw_get_row(matrix_t *mat, double *row, int i);
+
 
 /* Virtual Table *************************************************************/
 const matrix_vtable_t MATRIX_RAW_VTABLE = {
     .add_row = matrix_raw_add_row,
+    .get_row = matrix_raw_get_row,
     .free = matrix_raw_free,
     .mult = matrix_raw_mat_vector_multiply,
-    .mult_vmv = NULL,
+    .mult_vmv = matrix_raw_mult_vmv,
     .get_1norm = matrix_raw_get_1norm,
     .decrease_rows_sums_from_diag = matrix_raw_decrease_row_sum_from_diag,
     .divide = matrix_raw_divide,
+    .write_neighbors = matrix_raw_write_neighbors,
+    .initialise_row_numbers = matrix_raw_initialise_rows_numbers,
 };
 
 
@@ -104,6 +139,9 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
     result_t result = E__UNKNOWN;
     matrix_t * matrix = NULL;
     size_t array_length = 0;
+    matrix_raw_data_t *data = NULL;
+    double *array = NULL;
+    int *indexes = NULL;
 
     /* 0. Input validation */
     if (NULL == matrix_out) {
@@ -116,30 +154,48 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
         goto l_cleanup;
     }
 
-    /* 1. Allocate matrix_t */
+    /* 1. Allocate indexes */
+    indexes = (int *)malloc(sizeof(*indexes) * n);
+    if (NULL == indexes) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+    DEBUG_PRINT("matrix->data->indexes is %p", (void *)indexes);
+
+    /* 1. Allocate array */
+    array_length = sizeof(double) * n * n;
+    array = malloc(array_length);
+    if (NULL == array) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+    (void)memset(array, 0, array_length);
+    DEBUG_PRINT("matrix->data->array is %p", (void *)array);
+
+    /* 4. Allocate matrix */
     matrix = (matrix_t *)malloc(sizeof(*matrix));
     if (NULL == matrix) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
-    /* 2. Initialize */
-    (void)memset(matrix, 0, sizeof(*matrix));
+    DEBUG_PRINT("matrix is %p", (void *)matrix);
 
     /* 3. Allocate data */
-    array_length = sizeof(double) * n * n;
-    matrix->vtable = &MATRIX_RAW_VTABLE;
-    matrix->n = n;
-    matrix->type = MATRIX_TYPE_RAW;
-    /* DEBUG_PRINT("allocating matrix n=%d, size=%lu: addr %p to %p", */
-    /*         n, */
-    /*         array_length, */
-    /*         matrix->private, */
-    /*         (void *)((uint8_t* )matrix->private + array_length)); */
-    matrix->private = malloc(array_length);
-    if (NULL == matrix->private) {
+    data = (matrix_raw_data_t *)malloc(sizeof(*data));
+    if (NULL == data) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
+    DEBUG_PRINT("matrix->data is %p", (void *)data);
+
+
+    /* 4. Assign values */
+    data->array = array;
+    data->indexes = indexes;
+    matrix->n = n;
+    matrix->type = MATRIX_TYPE_RAW;
+    matrix->vtable = &MATRIX_RAW_VTABLE;
+    matrix->private = (void *)data;
 
     /* Success */
     *matrix_out = matrix;
@@ -148,7 +204,10 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
 
 l_cleanup:
     if (E__SUCCESS != result) {
-        matrix_raw_free(matrix);
+        FREE_SAFE(matrix);
+        FREE_SAFE(data);
+        FREE_SAFE(array);
+        FREE_SAFE(indexes);
     }
 
     return result;
@@ -159,11 +218,14 @@ void
 matrix_raw_free(matrix_t * matrix)
 {
     if (NULL != matrix) {
-        FREE_SAFE(matrix->private);
+        if (NULL != matrix->private) {
+            FREE_SAFE(GET_INDEXES(matrix));
+            FREE_SAFE(GET_ARRAY(matrix));
+            FREE_SAFE(matrix->private);
+        }
         FREE_SAFE(matrix);
     }
 }
-
 
 static
 void
@@ -236,18 +298,15 @@ matrix_raw_get_1norm(const matrix_t *matrix)
 {
     double max_col_sum = 0.0;
     double current_col_sum = 0.0;
-    double *row = 0;
-    double *last_row = 0;
-    double *col = 0;
-    double *last_col = 0;
+    int col = 0;
+    int row = 0;
     
     /* Go over each column */
-    last_col = &MATRIX_AT(matrix, matrix->n, 0);
-    for (col = &MATRIX_AT(matrix, 0, 0) ; last_col != col ; col += matrix->n) {
+    for (col = 0 ; col < matrix->n ; ++col) {
         /* Sum up all the rows within this column */
-        last_row = col + matrix->n;
-        for (row = col ; row < last_row ; ++row) {
-            current_col_sum += fabs(*row);
+        current_col_sum = 0.0;
+        for (row = 0 ; row < matrix->n ; ++row) {
+            current_col_sum += fabs(MATRIX_AT(matrix, row, col));
         }
 
         /* Update max col sum */
@@ -336,4 +395,72 @@ l_cleanup:
     }
 
     return result;
+}
+
+static
+double
+matrix_raw_mult_vmv(const matrix_t *mat, const double *v)
+{
+    int i = 0;
+    double current_mult = 0.0;
+    double result = 0.0;
+
+    for (i = 0 ; i < mat->n ; ++i) {
+        current_mult = VECTOR_scalar_multiply(&MATRIX_AT(mat, i, 0), v, mat->n);
+        result += v[i] * current_mult;
+    }
+
+    return result;
+}
+
+static
+result_t
+matrix_raw_write_neighbors(const matrix_t *matrix, FILE *file)
+{
+    result_t result = E__UNKNOWN;
+    int *current_index = NULL;
+    int *last_index = NULL;
+    size_t result_write = 0;
+
+    if ((NULL == matrix) || (NULL == file)) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    current_index = GET_INDEXES(matrix);
+    last_index = GET_INDEXES(matrix) + matrix->n;
+
+    for (; last_index > current_index ; ++current_index) {
+        result_write = fwrite((void *)current_index,
+                              sizeof(*current_index),
+                              1,
+                              file);
+        if (1 != result_write) {
+            result = E__FWRITE_ERROR;
+            goto l_cleanup;
+        }
+    }
+    
+    result = E__SUCCESS;
+l_cleanup:
+
+    return result;
+}
+
+static
+void
+matrix_raw_initialise_rows_numbers(matrix_t *mat)
+{
+    int i = 0;
+
+    for (i = 0 ; i < mat->n ; ++i) {
+        GET_INDEXES(mat)[i] = i;
+    }
+}
+
+static
+void
+matrix_raw_get_row(matrix_t *mat, double *row, int i)
+{
+    (void)memcpy(row, &MATRIX_AT(mat, i, 0), sizeof(*row) * mat->n);
 }

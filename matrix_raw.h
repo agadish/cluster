@@ -11,16 +11,6 @@
 #include "matrix.h"
 
 /* Macros ****************************************************************************************/
-/**
- * @remark Can only be used with MATRIX_TYPE_RAW matrices
- */
-#define MATRIX_RAW_GET_ARRAY(matrix) ((double *)((matrix)->private))
-
-/**
- * @remark Can only be used with MATRIX_TYPE_RAW matrices
- */
-#define MATRIX_RAW_AT(m, i, j) (MATRIX_RAW_GET_ARRAY(m)[((i) * (m)->n) + (j)])
-
 
 /* Functions Declarations *************************************************************/
 /**
