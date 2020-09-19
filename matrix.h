@@ -29,6 +29,9 @@
 #define MATRIX_MULT(m, vector, result) \
     MATRIX_VTABLE((m))->mult((m), (vector), (result))
 
+#define MATRIX_MULT_VMV(m, vector) \
+    MATRIX_VTABLE((m))->mult_vmv((m), (vector))
+
 #define MATRIX_GET_1NORM(m) \
     MATRIX_VTABLE((m))->get_1norm((m))
 
@@ -75,9 +78,8 @@ typedef void (*matrix_mult_f)(const matrix_t *matrix,
 
 /* Given a vector v and matrix A,
  * calculate the v-transposed multiply M multiply v */
-typedef void (*matrix_vec_mat_vec_mult_f)(const matrix_t *matrix,
-                                          const double *vector,
-                                          double *result_out);
+typedef double (*matrix_mult_vmv_f)(const matrix_t *matrix,
+                                          const double *vector);
 
 /**
  * Calcualte the 1-norm of the matrix
@@ -130,7 +132,7 @@ typedef struct matrix_vtable_s {
     matrix_add_row_f add_row;
     matrix_free_f free;
     matrix_mult_f mult; /* Calculate M*v */
-    matrix_vec_mat_vec_mult_f mult_vmv; /* Calculate v^T*M*v */
+    matrix_mult_vmv_f mult_vmv; /* Calculate v^T*M*v */
     matrix_get_1norm_f get_1norm;
     matrix_decrease_rows_sums_from_diag_f decrease_rows_sums_from_diag;
     matrix_divide_f divide;

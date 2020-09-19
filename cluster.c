@@ -44,7 +44,6 @@ cluster_optimize_division_iteration(matrix_t *matrix,
                               double *s_vector,
                               double *improve,
                               int *indices,
-                              double *temp,
                               double *delta_q_out);
 
 STATIC
@@ -84,7 +83,6 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
                                      double *eigen_value_out)
 {
     result_t result = E__UNKNOWN;
-    double *av = NULL;
     double eigen_norm = 0.0;
     double eigen_value_non_normalized = 0.0;
     double eigen_value = 0.0;
@@ -96,18 +94,9 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
     }
 
     /* 1. Multiply the matrice with the vector */
-    /* 1.1. Allocate result */
-    av = (double *)malloc(sizeof(*eigen_vector) * matrix->n);
-    if (NULL == av) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
 
-    /* 1.2. Multiply Av */
-    MATRIX_MULT(matrix, eigen_vector, av);
-
-    /* 2. Multiply v with Av */
-    eigen_value_non_normalized = VECTOR_scalar_multiply(eigen_vector, av, matrix->n);
+    /* 2.1. Caculate eigen norm */
+    eigen_value_non_normalized = MATRIX_MULT_VMV(matrix, eigen_vector);
     eigen_norm = VECTOR_scalar_multiply(eigen_vector, eigen_vector, matrix->n);
 
     /* 2.2. Calculate the avarage, or set as 0 */
@@ -124,7 +113,6 @@ cluster_calculate_leading_eigenvalue(const matrix_t *matrix,
     result = E__SUCCESS;
 l_cleanup:
 
-    FREE_SAFE(av);
     return result;
 }
 
@@ -137,7 +125,6 @@ cluster_divide(matrix_t *input,
     double *leading_eigen = NULL;
     double *b_vector = NULL;
     double leading_eigenvalue = 0.0;
-    double *bs = NULL;
     double stbs = 0.0;
     size_t s_ones = 0;
     double onenorm = 0.0;
@@ -213,20 +200,9 @@ cluster_divide(matrix_t *input,
 
     /* 5. Calculating stbs */
     /* 5.1. Allocate stbs */
-    bs = (double *)malloc(sizeof(*bs) * input->n);
-    if (NULL == bs) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
 
     /* 5.2. Bs: Multiply B with s */
-    MATRIX_MULT(input, s_vector, bs);
-
-    /* 5.3. sTBs: Multiply s_transposed with Bs */
-    stbs = VECTOR_scalar_multiply(s_vector, bs, input->n);
-
-    /* 5.4. Free bs */
-    FREE_SAFE(bs);
+    stbs = MATRIX_MULT_VMV(input, s_vector);
 
     /* 6. Check divisibility #2 */
     if (0 >= stbs) {
@@ -241,7 +217,6 @@ cluster_divide(matrix_t *input,
 l_cleanup:
     FREE_SAFE(b_vector);
     FREE_SAFE(leading_eigen);
-    FREE_SAFE(bs);
 
     return result;
 }
@@ -446,17 +421,6 @@ l_cleanup:
     return result;
 }
 
-double
-cluster_calculate_q(const matrix_t *matrix,
-                    const double *s_vector,
-                    double *temp)
-{
-    double q = 0.0;
-    MATRIX_MULT(matrix, s_vector, temp);
-    q = VECTOR_scalar_multiply(s_vector, temp, matrix->n);
-
-    return q;
-}
 
 STATIC
 result_t
@@ -465,7 +429,6 @@ cluster_optimize_division(matrix_t *matrix,
 {
     result_t result = E__UNKNOWN;
     double delta_q = 0.0;
-    double *temp = NULL;
     int *indices = NULL;
     double *improve = NULL;
 
@@ -477,11 +440,6 @@ cluster_optimize_division(matrix_t *matrix,
     }
 
     /* 1. Allocate memory */
-    temp = (double *)malloc(sizeof(*temp) * matrix->n);
-    if (NULL == temp) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
 
     indices = (int *)malloc(sizeof(*indices) * matrix->n);
     if (NULL == indices) {
@@ -501,7 +459,6 @@ cluster_optimize_division(matrix_t *matrix,
                 s_vector,
                 improve,
                 indices,
-                temp,
                 &delta_q);
         if (E__SUCCESS != result) {
             goto l_cleanup;
@@ -511,7 +468,6 @@ cluster_optimize_division(matrix_t *matrix,
     result = E__SUCCESS;
 l_cleanup:
 
-    FREE_SAFE(temp);
     FREE_SAFE(improve);
     FREE_SAFE(indices);
 
@@ -524,7 +480,6 @@ cluster_optimize_division_iteration(matrix_t *matrix,
                                     double *s_vector,
                                     double *improve,
                                     int *indices,
-                                    double *temp,
                                     double *delta_q_out)
 {
     result_t result = E__UNKNOWN;
@@ -548,14 +503,14 @@ cluster_optimize_division_iteration(matrix_t *matrix,
 
     for (i = 0 ; i < matrix->n ; ++i) {
         /* 2. Calculate Q_0 */
-        q_0 = cluster_calculate_q(matrix, s_vector, temp);
+        q_0 = MATRIX_MULT_VMV(matrix, s_vector);
 
         /* 3. Computing DeltaQ for the move of each unmoved vertex */
         for (scanner = unmoved_scores->first ; NULL != scanner ; scanner = scanner->next) {
             /* Calculate score when moving k */
             k = scanner->index;
             s_vector[k] *= -1;
-            q_score = cluster_calculate_q(matrix, s_vector, temp);
+            q_score = MATRIX_MULT_VMV(matrix, s_vector);
             s_vector[k] *= -1;
             scanner->value = q_score - q_0;
 

@@ -128,6 +128,18 @@ void
 spmat_list_initialise_rows_numbers(matrix_t *mat);
 
 /**
+ * @purpose multiplying row vector, matrix, and same vector as col vector
+ * @param mat input matrix
+ * @param v input vector
+
+ * @return result of multiplication
+ *
+ */
+static
+double
+spmat_list_matrix_vector_sandwich(const matrix_t *mat, const double *v);
+
+/**
  * @see matrix_divide_f on matrix.h
  */
 static
@@ -144,7 +156,7 @@ const matrix_vtable_t SPMAT_LIST_VTABLE = {
     .add_row = spmat_list_add_row,
     .free = spmat_list_free,
     .mult = spmat_list_mult,
-    .mult_vmv = NULL,
+    .mult_vmv = spmat_array_matrix_vector_sandwich,
     .get_1norm = spmat_list_get_1norm,
     .decrease_rows_sums_from_diag = spmat_list_decrease_rows_sums_from_diag,
     .divide = spmat_list_divide_matrix
@@ -725,20 +737,14 @@ spmat_list_initialise_rows_numbers(matrix_t *mat)
     }
 }
 
+static
 double
 spmat_array_matrix_vector_sandwich(const matrix_t *mat, const double *v)
 {
-    result_t result = E__UNKNOWN;
     spmat_row_t *rows_array = NULL;
     double row_sum = 0.0;
     double result = 0.0;
     int row = 0;
-
-    if ((NULL == mat) || (NULL == v) || (NULL == multiplication_result)) {
-        /* Remark: this function signature shouldn't be void */
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
 
     rows_array = GET_ROWS_ARRAY(mat);
     for (row = 0 ; row < mat->n ; ++row) {
@@ -754,9 +760,5 @@ spmat_array_matrix_vector_sandwich(const matrix_t *mat, const double *v)
         row_sum = 0.0;
     }
 
-    result = E__SUCCESS;
-l_cleanup:
-
-    UNUSED_ARG(result);
     return result;
 }
