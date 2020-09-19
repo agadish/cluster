@@ -51,6 +51,15 @@ matrix_raw_mat_vector_multiply(const matrix_t *matrix,
                                const double *vector,
                                double * multiplication);
 
+static
+double
+matrix_raw_get_1norm(const matrix_t *matrix);
+
+static
+result_t
+matrix_raw_decrease_row_sum_from_diag(matrix_t *matrix);
+
+
 /**
  * @purpose Given a matrix A and a line-vector b, Computes bA
  * @param matrix input Matirx A [nxn]
@@ -67,9 +76,28 @@ matrix_raw_vector_mat_multiply(const matrix_t *matrix,
                                double * multiplication);
 #endif /* 0 */
 
+static
+result_t
+matrix_raw_divide(matrix_t *matrix,
+                  const double *vector_s,
+                  int *temp_s_indexes,
+                  matrix_t **matrix1_out,
+                  matrix_t **matrix2_out);
 
 
-/* Functions ************************************************************************************/
+/* Virtual Table *************************************************************/
+const matrix_vtable_t MATRIX_RAW_VTABLE = {
+    .add_row = matrix_raw_add_row,
+    .free = matrix_raw_free,
+    .mult = matrix_raw_mat_vector_multiply,
+    .mult_vmv = NULL,
+    .get_1norm = matrix_raw_get_1norm,
+    .decrease_rows_sums_from_diag = matrix_raw_decrease_row_sum_from_diag,
+    .divide = matrix_raw_divide,
+};
+
+
+/* Functions *****************************************************************/
 result_t
 MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
 {
@@ -94,22 +122,20 @@ MATRIX_RAW_allocate(int n, matrix_t ** matrix_out)
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
-
     /* 2. Initialize */
     (void)memset(matrix, 0, sizeof(*matrix));
-    matrix->add_row = matrix_raw_add_row;
-    matrix->free = matrix_raw_free;
-    matrix->mult = matrix_raw_mat_vector_multiply;
-    /* matrix->rmult = matrix_raw_vector_mat_multiply; */
 
     /* 3. Allocate data */
     array_length = sizeof(double) * n * n;
-    matrix->private = malloc(array_length);
+    matrix->vtable = &MATRIX_RAW_VTABLE;
+    matrix->n = n;
+    matrix->type = MATRIX_TYPE_RAW;
     /* DEBUG_PRINT("allocating matrix n=%d, size=%lu: addr %p to %p", */
     /*         n, */
     /*         array_length, */
     /*         matrix->private, */
     /*         (void *)((uint8_t* )matrix->private + array_length)); */
+    matrix->private = malloc(array_length);
     if (NULL == matrix->private) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
@@ -204,3 +230,110 @@ l_cleanup:
     return result;
 } 
 
+static
+double
+matrix_raw_get_1norm(const matrix_t *matrix)
+{
+    double max_col_sum = 0.0;
+    double current_col_sum = 0.0;
+    double *row = 0;
+    double *last_row = 0;
+    double *col = 0;
+    double *last_col = 0;
+    
+    /* Go over each column */
+    last_col = &MATRIX_AT(matrix, matrix->n, 0);
+    for (col = &MATRIX_AT(matrix, 0, 0) ; last_col != col ; col += matrix->n) {
+        /* Sum up all the rows within this column */
+        last_row = col + matrix->n;
+        for (row = col ; row < last_row ; ++row) {
+            current_col_sum += fabs(*row);
+        }
+
+        /* Update max col sum */
+        max_col_sum = MAX(max_col_sum, current_col_sum);
+    }
+
+    return max_col_sum;
+}
+
+static
+result_t
+matrix_raw_decrease_row_sum_from_diag(matrix_t *matrix)
+{
+    result_t result = E__UNKNOWN;
+    double current_row_sum = 0.0;
+    int row = 0;
+    int col = 0;
+    
+    /* 0. Input validation */
+    if (NULL == matrix) {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* Go over each col */
+    for (row = 0 ; row < matrix->n ; ++row) {
+        /* Sum up the row */
+        for (col = 0 ; col < matrix->n ; ++col) {
+            current_row_sum += MATRIX_AT(matrix, row, col);
+        }
+
+        /* Decrease row sum from diag */
+        MATRIX_AT(matrix, row, row) -= current_row_sum;
+    }
+
+    result = E__SUCCESS;
+l_cleanup:
+    
+    return result;
+}
+
+static
+result_t
+matrix_raw_divide(matrix_t *matrix,
+                  const double * vector_s,
+                  int * temp_s_indexes,
+                  matrix_t **matrix1_out,
+                  matrix_t **matrix2_out)
+{
+    result_t result = E__UNKNOWN;
+    int matrix1_n = 0;
+    int matrix2_n = 0;
+    matrix_t *matrix1 = NULL;
+    matrix_t *matrix2 = NULL;
+
+    /* 0. Input validation */
+    if ((NULL == matrix) || (NULL == vector_s) || (NULL == matrix1_out) ||
+        (NULL == matrix2_out))
+    {
+        result = E__NULL_ARGUMENT;
+        goto l_cleanup;
+    }
+
+    /* 1. Calculate s-index */
+    matrix1_n = VECTOR_create_s_indexes(vector_s,
+                                     matrix->n,
+                                     temp_s_indexes);
+
+    /* 2. Create matrixes */
+    /* 2.1. matrix 1 */
+    result = MATRIX_create_matrix(matrix1_n, MATRIX_TYPE_RAW, &matrix1);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    /* 2.2. matrix 2 */
+    matrix2_n = matrix->n - matrix1_n;
+    result = MATRIX_create_matrix(matrix2_n, MATRIX_TYPE_RAW, &matrix2);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    result = E__SUCCESS;
+l_cleanup:
+    if (E__SUCCESS != result) {
+    }
+
+    return result;
+}

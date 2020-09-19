@@ -1,7 +1,7 @@
 GCC=/usr/bin/gcc
 CFLAGS=--std=c99 -Wall -Wextra -Werror -pedantic-errors
 # CFLAGS=-ansi -Wall -Wextra -Werror -pedantic-errors
-DEBUG_FLAGS=-O0 -g -D__DEBUG__
+DEBUG_FLAGS=-O0 -g -D__DEBUG__ -pg
 SOURCES=$(wildcard *.c)
 # SOURCES=$(filter-out adjacency_matrix.c, $(wildcard *.c))
 OBJECTS=$(SOURCES:.c=.o)

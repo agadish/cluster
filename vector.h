@@ -60,4 +60,28 @@ VECTOR_is_close(const double * vector_a,
                 size_t length,
                 double epsilon);
 
+/**
+ * @brief Convert an s-vector to s-index vector
+ *
+ * Given an s-vector that maps node n to a group (-1.0 or 1.0), this
+ * function will calculate a s-index vectro that maps a node n to its index
+ * within its new group.
+ * Both groups' new indexes will be written to the one array.
+ *
+ * @param matrix The matrix to divide
+ * @param s_vector The given s-vector
+ * @param length The length of the s-vector
+ * @param s_indexes A pre-allocated buffer which the indexes of both groups
+ *                  will be written to
+ * @param matrix1_n_out Will return the 1st group's lenght (=number of 1.0's)
+ *
+ * @return One of result_t values
+ *
+ * @remark vector_s and s_indexes must be valid vectors with the given length
+ */
+int
+VECTOR_create_s_indexes(const double * vector_s,
+                        int length,
+                        int *s_indexes);
+
 #endif /* __VECTOR_H__ */
