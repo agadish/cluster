@@ -110,23 +110,6 @@ void
 spmat_list_get_rows_sums(const submatrix_t *smat,
                          double *vector);
 
-/**
- * Calculat the expected neighbors number given indexes of a cell.
- * The given indexes must be accordingly to the actual matrix, not g_indexes.
- *
- * @param smat The submatrix
- * @param i The row index in the complete matrix
- * @param j The column index in the complete matrix
- *
- * @return The expected value
- */
-#if 0
-inline
-static
-double
-submat_spmat_get_expected_value(const submatrix_t *smat, int i, int j);
-#endif
-
 static
 double
 submat_spmat_list_mult_row_with_s(const submatrix_t *submatrix,
@@ -629,50 +612,6 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
     }
 
 }
-
-result_t
-SPMAT_LIST_write_neighbors(const matrix_t *matrix, FILE *file)
-{
-    result_t result = E__UNKNOWN;
-    size_t result_write = 0;
-    int i = 0;
-    int index = -1;
-
-    if ((NULL == matrix) || (NULL == file)) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
-
-    /* Go over the matrix lines */
-    for (i = 0 ; i < matrix->n ; ++i) {
-        /* Get the line's index */
-        index = GET_ROW(matrix, i).index;
-
-        /* Write the line's index */
-        result_write = fwrite(&index, sizeof(index), 1, file);
-        if (1 != result_write) {
-            result = E__FWRITE_ERROR;
-            goto l_cleanup;
-        }
-    }
-
-    result = E__SUCCESS;
-l_cleanup:
-
-    return result;
-}
-
-
-#if 0
-inline
-static
-double
-submat_spmat_get_expected_value(const submatrix_t *smat, int i, int j)
-{
-    const int *k = smat->adj->neighbors;
-    return (k[i] * k[j]) / ((double)smat->adj->M);
-}
-#endif
 
 static
 void
