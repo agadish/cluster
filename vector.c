@@ -15,6 +15,14 @@
 #define OPTIMIZE_VECTOR_OPERATIONS
 
 /* Functions Declarations ************************************************************************/
+
+/**
+ * @purpose calculate magnitude of vector
+ * @param vector input
+ * @param length The vector length
+ *
+ * @remark vector must be valid buffer, value must be non-zero
+ */
 static
 double
 vector_calculate_magnitude(double *vector, size_t length);

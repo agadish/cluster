@@ -18,7 +18,14 @@
 #include "spmat_list.h"
 
 /* Functions Declarations ***********************************************************************/
-/*
+/**
+ * @purpose read neighbors of a node from input file
+ * @param file - path of input file
+ * @param prev_vector adj- adjecancy matrix to be made
+ * @param matrix - matrix to be made
+ * @param line index - index of the line to be updates
+ * @param tmp_buffer - temporary buffer to hold values
+ * @return One of result_t values
  *
  */
 static
@@ -29,6 +36,10 @@ adjacency_matrix_read_neighbors_line(FILE * file,
                                      int line_index,
                                      double *tmp_buffer);
 
+/**
+ * @purpose calculate ki/M
+ * @param adj- adjacency matrix
+ */
 static
 void
 adjacency_matrix_calculate_neighbors_div_M(adjacency_t *adj);

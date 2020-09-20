@@ -75,6 +75,13 @@ LIST_range(size_t count, list_t **list_out);
 double
 LIST_scalar_multiply(list_t *row, const double *v);
 
+/**
+ * @purpose remove a node from a linked list
+ * @param list - the linked list
+ * @param node - the node we want to delete
+ *
+ * @return The scalar multiplication result
+ */
 result_t
 LIST_remove_node(list_t *list, node_t *node);
 

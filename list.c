@@ -13,6 +13,11 @@
 
 
 /* Functions Declarations ****************************************************/
+/**
+ * @purpose link two nodes on a linked list after updating the list
+ * @param first node
+ * @param second node
+ */
 static
 void
 node_link(node_t *first, node_t *second);
