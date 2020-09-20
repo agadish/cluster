@@ -41,9 +41,18 @@ result_t
 cluster_calculate_leading_eigenvalue(const submatrix_t *matrix,
                                      const double *eigen_vector,
                                      double *eigen_value_out);
+#if 0
 static
 result_t
 cluster_optimize_division_iteration(submatrix_t *matrix,
+                                    double *s_vector,
+                                    double *improve,
+                                    int *indices,
+                                    double *delta_q_out);
+#endif
+static
+result_t
+cluster_optimize_division_iteration2(submatrix_t *smat,
                                     double *s_vector,
                                     double *improve,
                                     int *indices,
@@ -492,7 +501,7 @@ cluster_optimize_division(submatrix_t *smat,
 
     /* 2. Do iterations as long as there's improvement */
     do {
-        result = cluster_optimize_division_iteration(smat,
+        result = cluster_optimize_division_iteration2(smat,
                                                      s_vector,
                                                      improve,
                                                      indices,
@@ -511,6 +520,7 @@ l_cleanup:
     return result;
 }
 
+#if 0
 static
 result_t
 cluster_optimize_division_iteration(submatrix_t *smat,
@@ -603,6 +613,7 @@ l_cleanup:
 
     return result;
 }
+#endif
 
 static
 result_t
@@ -618,6 +629,7 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
     node_t *max_unmoved = NULL;
     int i = 0;
     int k = 0;
+    double delta_q = 0.0;
     /* A negative value will never be the max since the last improvement is always 0 */
     double max_improvement_value = -1.0;
     int max_improvement_index = 0;
@@ -629,9 +641,6 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
     }
 
     for (i = 0 ; i < smat->g_length ; ++i) {
-        /* 2. Calculate Q_0 */
-        q_0 = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector);
-
         /* 3. Computing DeltaQ for the move of each unmoved vertex */
         for (scanner = unmoved_scores->first ; NULL != scanner ; scanner = scanner->next) {
             /* Calculate score when moving k */
