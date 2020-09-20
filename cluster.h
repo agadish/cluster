@@ -14,7 +14,8 @@
 
 /* Functions Declarations ************************************************************************/
 result_t
-CLUSTER_divide_repeatedly(adjacency_matrix_t *adj,
+CLUSTER_divide_repeatedly(adjacency_t *adj,
+                          matrix_t *matrix,
                           division_file_t *output_file);
 
 

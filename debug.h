@@ -18,5 +18,7 @@
 #define DEBUG_PRINT(...) 
 #endif
 
+#undef DEBUG_PRINT
+#define DEBUG_PRINT(...) 
 #endif /* __DEBUG_H__ */
 

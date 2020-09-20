@@ -29,7 +29,8 @@ enum clsuter_args_e {
 int main(int argc, const char * argv[])
 {
     result_t result = E__UNKNOWN;
-    adjacency_matrix_t *adj_matrix = NULL;
+    matrix_t *matrix = NULL;
+    adjacency_t *adj = NULL;
     matrix_t *group1 = NULL;
     matrix_t *group2 = NULL;
     division_file_t *division_file = NULL;
@@ -47,7 +48,7 @@ int main(int argc, const char * argv[])
     start = clock();
 
     /* 2. Open adjacency matrix */
-    result = ADJACENCY_MATRIX_open(argv[ARG_INPUT_ADJACENCY], &adj_matrix);
+    result = ADJACENCY_MATRIX_open(argv[ARG_INPUT_ADJACENCY], &adj, &matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -60,7 +61,7 @@ int main(int argc, const char * argv[])
     }
 
     /* 5. Divide. Note: mod_matrix is freed by divide */
-    result = CLUSTER_divide_repeatedly(adj_matrix, division_file);
+    result = CLUSTER_divide_repeatedly(adj, matrix, division_file);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -77,9 +78,9 @@ int main(int argc, const char * argv[])
 
     result = E__SUCCESS;
 l_cleanup:
-    if (NULL != adj_matrix) {
-        ADJACENCY_MATRIX_free(adj_matrix);
-        adj_matrix = NULL;
+    if (NULL != adj) {
+        ADJACENCY_MATRIX_free(adj);
+        adj = NULL;
     }
 
     DIVISION_FILE_close(division_file);

@@ -44,7 +44,8 @@ typedef struct submatrix_s submatrix_t;
  * [ ij ]     [ ij ]       M         ij   (  i )        ij
  */
 struct submatrix_s {
-    const adjacency_matrix_t *adj;
+    const adjacency_t *adj;
+    matrix_t *orig;
     /* Count of subindexes */
     int g_length;
     /* Array of subindexes of this matrix */
@@ -65,7 +66,8 @@ struct submatrix_s {
  * @return One of result_t values
  */
 result_t
-SUBMATRIX_create(const adjacency_matrix_t *adj,
+SUBMATRIX_create(const adjacency_t *adj,
+                 matrix_t *matrix,
                  submatrix_t **smat_out);
 
 result_t

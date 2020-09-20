@@ -29,8 +29,8 @@ result_t
 SPMAT_LIST_transpose(const matrix_t *matrix, matrix_t **transposed_out);
 
 double
-SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *submatrix,
-                            double *temp_n_sized_vector);
+SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
+                            double *tmp_row_sums);
 
 void
 SUBMAT_SPMAT_LIST_mult(const submatrix_t *submatrix,
@@ -43,8 +43,9 @@ SUBMAT_SPMAT_LIST_calculate_q(const submatrix_t *submatrix,
 
 result_t
 SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
-                        const double *s_vector,
-                        submatrix_t **split1_out,
-                        submatrix_t **split2_out);
+        const double * vector_s,
+        int *temp_s_indexes,
+        submatrix_t **matrix1_out,
+        submatrix_t **matrix2_out);
 
 #endif /* __SPMAT_LIST_H__ */

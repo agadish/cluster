@@ -39,7 +39,7 @@ EIGEN_calculate_eigen(const submatrix_t *smat,
 
     /* 1. Allocate vectors */
     /* 1.1. Create two vectors: for result, and previous result */
-    n = smat->adj->original->n;
+    n = smat->orig->n;
     original_vector_res = eigen;
 
     /* 2. Multiply the matrix and vector until the previous result is close enough */

@@ -22,17 +22,21 @@
 /*
  *
  */
-static result_t
+static
+result_t
 adjacency_matrix_read_neighbors_line(FILE * file,
-                                     adjacency_matrix_t *matrix,
+                                     adjacency_t *adj,
+                                     matrix_t *matrix,
                                      int line_index,
                                      double *tmp_buffer);
 
 
 /* Functions ************************************************************************************/
-static result_t
+static
+result_t
 adjacency_matrix_read_neighbors_line(FILE *file,
-                                     adjacency_matrix_t *adj_matrix,
+                                     adjacency_t *adj,
+                                     matrix_t *matrix,
                                      int line_index,
                                      double *tmp_neighbors_buffer)
 {
@@ -53,13 +57,13 @@ adjacency_matrix_read_neighbors_line(FILE *file,
     }
 
     /* 2. Save number of neighbors */
-    adj_matrix->neighbors[line_index] = number_of_edges;
-    adj_matrix->M += number_of_edges;
+    adj->neighbors[line_index] = number_of_edges;
+    adj->M += number_of_edges;
 
     /* 3. Zero the neighbors buffer */
     (void)memset(tmp_neighbors_buffer,
                  0,
-                 sizeof(*tmp_neighbors_buffer) * adj_matrix->original->n);
+                 sizeof(*tmp_neighbors_buffer) * adj->n);
 
     /* 4. Read all edges */
     for (i = 0 ; i < number_of_edges ; ++i) {
@@ -78,7 +82,7 @@ adjacency_matrix_read_neighbors_line(FILE *file,
     }
 
     /* 4. Set row in matrix */
-    result = MATRIX_ADD_ROW(adj_matrix->original,
+    result = MATRIX_ADD_ROW(matrix,
                             tmp_neighbors_buffer,
                             line_index);
     if (E__SUCCESS != result) {
@@ -93,10 +97,13 @@ l_cleanup:
 }
 
 result_t
-ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **adj_out)
+ADJACENCY_MATRIX_open(const char *path,
+                      adjacency_t **adj_out,
+                      matrix_t **matrix_out)
 {
     result_t result = E__UNKNOWN;
-    adjacency_matrix_t *adj = NULL;
+    adjacency_t *adj = NULL;
+    matrix_t *matrix = NULL;
     int matrix_n = 0 ;
     FILE *file = NULL;
     size_t result_fread = 0;
@@ -104,7 +111,7 @@ ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **adj_out)
     int i = 0;
 
     /* 1. Allocate adj adj */
-    adj = (adjacency_matrix_t *)malloc(sizeof(*adj));
+    adj = (adjacency_t *)malloc(sizeof(*adj));
     if (NULL == adj) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
@@ -129,12 +136,13 @@ ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **adj_out)
     /* 4.1. Allocate adj */
     result = MATRIX_create_matrix(matrix_n,
                                   MATRIX_TYPE_SPMAT_LIST,
-                                  &adj->original);
+                                  &matrix);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
     /* 4.2. Allocate neighbors array */
+    adj->n = matrix_n;
     adj->neighbors = (int *)malloc(sizeof(*(adj->neighbors)) * matrix_n);
     if (NULL == adj->neighbors) {
         result = E__MALLOC_ERROR;
@@ -153,6 +161,7 @@ ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **adj_out)
     for (i = 0 ; i < matrix_n ; ++i) {
         result = adjacency_matrix_read_neighbors_line(file,
                                                       adj,
+                                                      matrix,
                                                       i,
                                                       tmp_neighbors_buffer);
         if (E__SUCCESS != result) {
@@ -160,13 +169,9 @@ ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **adj_out)
         }
     }
 
-    result = SPMAT_LIST_transpose(adj->original, &adj->transposed);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-
     /* Success */
     *adj_out = adj;
+    *matrix_out = matrix;
 
     result = E__SUCCESS;
 l_cleanup:
@@ -180,13 +185,11 @@ l_cleanup:
 }
 
 void
-ADJACENCY_MATRIX_free(adjacency_matrix_t *adjacency_matrix)
+ADJACENCY_MATRIX_free(adjacency_t *adj)
 {
-    if (NULL != adjacency_matrix) {
-        MATRIX_FREE_SAFE(adjacency_matrix->original);
-        MATRIX_FREE_SAFE(adjacency_matrix->transposed);
-        FREE_SAFE(adjacency_matrix->neighbors);
-    }
-    FREE_SAFE(adjacency_matrix);
+    FREE_SAFE(adj->neighbors);
+    adj->n = 0;
+    adj->M = 0;
+    FREE_SAFE(adj);
 }
 

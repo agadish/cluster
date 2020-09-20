@@ -80,7 +80,9 @@ cluster_sub_divide_optimized(submatrix_t *smat,
 
 static
 result_t
-cluster_create_submatrix(const adjacency_matrix_t *adj, submatrix_t **smat_out);
+cluster_create_submatrix(const adjacency_t *adj,
+                         matrix_t *matrix,
+                         submatrix_t **smat_out);
 
 
 /* Functions *****************************************************************/
@@ -108,7 +110,7 @@ cluster_calculate_leading_eigenvalue(const submatrix_t *matrix,
                                                           eigen_vector);
     eigen_value_denominator = VECTOR_scalar_multiply(eigen_vector,
                                                      eigen_vector,
-                                                     matrix->adj->original->n);
+                                                     matrix->orig->n);
 
     /* 2.2. Calculate the avarage, or set as 0 */
     if (IS_POSITIVE(eigen_value_denominator)) {
@@ -251,19 +253,23 @@ l_cleanup:
 
 static
 result_t
-cluster_create_submatrix(const adjacency_matrix_t *adj, submatrix_t **smat_out)
+cluster_create_submatrix(const adjacency_t *adj,
+                         matrix_t *matrix,
+                         submatrix_t **smat_out)
 {
     result_t result = E__UNKNOWN;
     submatrix_t *smat = NULL;
     int i = 0;
 
     /* 1. Create submatrix */
-    result = SUBMATRIX_create(adj, &smat);
+    result = SUBMATRIX_create(adj, matrix, &smat);
+    /* TODO: Calculate transposed */
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
     /* 2. Initialise g-vector */
+    smat->g_length = smat->orig->n;
     for (i = 0 ; i < smat->g_length ; ++i) {
         smat->g[i] = i;
     }
@@ -281,7 +287,9 @@ l_cleanup:
 }
 
 result_t
-CLUSTER_divide_repeatedly(adjacency_matrix_t *adj, division_file_t *output_file)
+CLUSTER_divide_repeatedly(adjacency_t *adj,
+                          matrix_t *matrix,
+                          division_file_t *output_file)
 {
     result_t result = E__UNKNOWN;
     result_t division_result = E__UNKNOWN;
@@ -293,6 +301,7 @@ CLUSTER_divide_repeatedly(adjacency_matrix_t *adj, division_file_t *output_file)
     submatrix_t *group1 = NULL;
     submatrix_t *group2 = NULL;
     double *temp_b_vector = NULL;
+    int *temp_indexes_vector = NULL;
     double *temp_eigen_vector = NULL;
 
     /* 0. Input validation */
@@ -302,32 +311,38 @@ CLUSTER_divide_repeatedly(adjacency_matrix_t *adj, division_file_t *output_file)
     }
 
     /* 1. Initializations */
-    p_group = (submatrix_t **)malloc(adj->original->n * sizeof(*p_group));
+    p_group = (submatrix_t **)malloc(adj->n * sizeof(*p_group));
     if (NULL == p_group) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    s_vector = (double *)malloc(adj->original->n * sizeof(*s_vector));
+    s_vector = (double *)malloc(adj->n * sizeof(*s_vector));
     if (NULL == s_vector) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    temp_b_vector = (double *)malloc(adj->original->n * sizeof(*temp_b_vector));
+    temp_b_vector = (double *)malloc(adj->n * sizeof(*temp_b_vector));
     if (NULL == temp_b_vector) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    temp_eigen_vector = (double *)malloc(adj->original->n *
+    temp_indexes_vector = (int *)malloc(adj->n * sizeof(*temp_indexes_vector));
+    if (NULL == temp_indexes_vector) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
+    temp_eigen_vector = (double *)malloc(adj->n *
                                          sizeof(*temp_eigen_vector));
     if (NULL == temp_eigen_vector) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
 
-    result = cluster_create_submatrix(adj, &smat);
+    result = cluster_create_submatrix(adj, matrix, &smat);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
@@ -373,6 +388,7 @@ CLUSTER_divide_repeatedly(adjacency_matrix_t *adj, division_file_t *output_file)
         /* Network is divisible */
         result = SUBMAT_SPMAT_LIST_split(current_matrix,
                                          s_vector,
+                                         temp_indexes_vector,
                                          &group1,
                                          &group2);
         if (E__SUCCESS != result) {
@@ -449,7 +465,7 @@ l_cleanup:
         SUBMATRIX_FREE_SAFE(p_group[p_group_length]);
     }
 
-
+    FREE_SAFE(temp_indexes_vector);
     FREE_SAFE(p_group);
     FREE_SAFE(s_vector);
     FREE_SAFE(temp_b_vector);

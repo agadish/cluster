@@ -18,17 +18,16 @@
 
 /* Structs ***************************************************************************************/
 /**
- * @brief The adjacency_matrix dimensions and data
- * @param matrix The matrix
+ * @brief The adjacency data
+ * @param neighbors neighbors buffer length
  * @param neighbors Mapping array from vertice index to its neighbors count
  * @param M The total neighbors count (equals edges count times 2)
  */
-typedef struct adjacency_matrix_s {
-    matrix_t *original;
-    matrix_t *transposed;
+typedef struct adjacency_s {
+    int n;
     int *neighbors;
     int M;
-} adjacency_matrix_t;
+} adjacency_t;
 
 
 /* Functions Declarations *************************************************************/
@@ -43,7 +42,9 @@ typedef struct adjacency_matrix_s {
  * @remark adj_matrix must be freed using ADJACENCY_MATRIX_free
  */
 result_t
-ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **adj_matrix_out);
+ADJACENCY_MATRIX_open(const char *path,
+                      adjacency_t **adj_out,
+                      matrix_t **matrix_out);
 
 /**
  * @purpose Free an adjacency matrix which was previously created by
@@ -54,7 +55,7 @@ ADJACENCY_MATRIX_open(const char *path, adjacency_matrix_t **adj_matrix_out);
  * @remark Safe to call with NULL
  */
 void
-ADJACENCY_MATRIX_free(adjacency_matrix_t *adjacency_matrix);
+ADJACENCY_MATRIX_free(adjacency_t *adjacency);
 
 
 #endif /* __ADJACENCY_MATRIX_H__ */

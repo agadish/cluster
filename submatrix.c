@@ -3,7 +3,7 @@
  * @purpose A generic submatrix
  */
 
-/* Includes **************************************************************************************/
+/* Includes ******************************************************************/
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,14 +18,14 @@
 #include "spmat_array.h"
 
 
-/* Functions ************************************************************************************/
+/* Functions *****************************************************************/
 result_t
-SUBMATRIX_create(const adjacency_matrix_t *adj,
+SUBMATRIX_create(const adjacency_t *adj,
+                 matrix_t *matrix,
                  submatrix_t **smat_out)
 {
     result_t result = E__UNKNOWN;
     int *g = NULL;
-    int g_length = 0;
     submatrix_t *smat = NULL;
 
     if ((NULL == adj) || (NULL == smat_out))
@@ -35,8 +35,7 @@ SUBMATRIX_create(const adjacency_matrix_t *adj,
     }
 
     /* 1. Allocate g-vector with length n */
-    g_length = adj->original->n;
-    g = (int *)malloc(g_length * sizeof(*g));
+    g = (int *)malloc(adj->n * sizeof(*g));
     if (NULL == g) {
         result = E__MALLOC_ERROR;
         goto l_cleanup;
@@ -50,8 +49,14 @@ SUBMATRIX_create(const adjacency_matrix_t *adj,
 
     smat->adj = adj;
     smat->g = g;
-    smat->g_length = g_length;
+    smat->g_length = 0;
     smat->add_to_diag = 0.0;
+    smat->orig = matrix;
+
+    /* result = SPMAT_LIST_transpose(orig, &smat->transposed); */
+    /* if (E__SUCCESS != result) { */
+    /*     goto l_cleanup; */
+    /* } */
 
     *smat_out = smat;
 
@@ -69,8 +74,10 @@ void
 SUBMATRIX_free(submatrix_t *smat)
 {
     if (NULL != smat) {
-        smat->g_length = 0;
         FREE_SAFE(smat->g);
+        MATRIX_FREE_SAFE(smat->orig);
+        smat->g_length = 0;
+        FREE_SAFE(smat->orig);
     }
     FREE_SAFE(smat);
 }
