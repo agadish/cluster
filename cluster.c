@@ -647,7 +647,7 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
             k = scanner->index;
             s_vector[k] *= -1;
             scanner->value = SUBMAT_SPMAT_LIST_calc_q_score(smat, s_vector, k);
-            s_vector[k] += -1;
+            s_vector[k] *= -1;
 
             /* Update max score */
             if (NULL == max_unmoved) {
