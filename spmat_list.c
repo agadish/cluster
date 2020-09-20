@@ -138,6 +138,12 @@ static
 double
 spmat_list_get_1norm(const matrix_t *matrix);
 
+static
+double
+submat_spmat_list_mult_row_with_s_no_hat_improved(const submatrix_t *smat,
+                                                  int row_g,
+                                                  const double *s_vector);
+
 
 /* Virtual Table *************************************************************/
 const matrix_vtable_t SPMAT_LIST_VTABLE = {
@@ -815,14 +821,11 @@ SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
         norm = MAX(norm, current_row_norm);
     }
 
-    (void)printf("get_1norm\nlong calculated %f, short calculated %f\n",
-            norm,
-            spmat_list_get_1norm(smat->orig));
-
     /* Success */
     return norm;
 }
 
+#if 0
 static
 double
 submat_spmat_list_mult_row_with_s_no_hat(const submatrix_t *smat,
@@ -874,12 +877,13 @@ submat_spmat_list_mult_row_with_s_no_hat(const submatrix_t *smat,
 
     return result;
 }
+#endif
 
 static
 double
 submat_spmat_list_mult_row_with_s_no_hat_improved(const submatrix_t *smat,
-                                         int row_g,
-                                         const double *s_vector)
+                                                  int row_g,
+                                                  const double *s_vector)
 {
     double result = 0.0;
     list_t *l = NULL;
@@ -915,9 +919,7 @@ submat_spmat_list_mult_row_with_s_no_hat_improved(const submatrix_t *smat,
             values_sum += (s->value - expected_value) * (s_vector[current_g] > 0 ? 1 : -1);
         }
     }
-    current_g = smat->g_length + 1;
-
-    printf("%s: [line %d, first %d last %d] after loop: current_g=%d prev_g=%d\n", __func__, row_g, ((NULL != l) ? l->first->index : -1), ((NULL != l) ? l->last->index : -1),  current_g, prev_g);
+    current_g = smat->g_length;
 
     kj_zeroes_sums += VECTOR_scalar_multiply_with_s(
         &smat->adj->neighbors_div_M[prev_g],
@@ -925,10 +927,10 @@ submat_spmat_list_mult_row_with_s_no_hat_improved(const submatrix_t *smat,
         MAX(current_g - prev_g, 0)
     );
 
-    kj_zeroes_sums *= smat->adj->neighbors[row_i];
-
+    kj_zeroes_sums *= (double)smat->adj->neighbors[row_i];
 
     result = values_sum - kj_zeroes_sums + (smat->add_to_diag * s_vector[row_g]);
+    result += (smat->add_to_diag) * s_vector[row_g];
 
     return result;
 }
@@ -1103,32 +1105,10 @@ SUBMAT_SPMAT_LIST_calc_q_score(const submatrix_t *smat,
 	double expected_value = 0.0;
 	double q_score = 0.0;
     int row_i = 0;
-    double q_regular = 0.0;
-    double q_improved = 0.0;
-    int i = 0;
 
-    (void)submat_spmat_list_mult_row_with_s_no_hat;
-    (void)submat_spmat_list_mult_row_with_s_no_hat_improved;
-
-    q_regular = submat_spmat_list_mult_row_with_s_no_hat(smat,
-                                                         row_g,
-                                                         vector);
-
-    q_improved = submat_spmat_list_mult_row_with_s_no_hat_improved(smat,
-                                                                row_g,
-                                                                vector);
-    if (q_regular != q_improved) {
-        for (i = 0 ; i < 50 ; ++i) {
-            printf("WATAWEAWHWIAHWIUAHUWIAHIWUAHIWAHIWAWAW reg %f imp %f\n", q_regular, q_improved);
-        }
-    }
-    q_part1 = q_regular;
-
-#if 0
     q_part1 = submat_spmat_list_mult_row_with_s_no_hat_improved(smat,
                                                                 row_g,
                                                                 vector);
-#endif
     row_i = smat->g[row_g];
     expected_value = SPMAT_GET_EXPECTED_VALUE(smat, row_i, row_i);
     q_score = 4 * (vector[row_g] * q_part1 + expected_value);

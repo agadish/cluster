@@ -61,7 +61,8 @@ VECTOR_scalar_multiply_with_s(const double * l1, const double * s, size_t n)
 
 #ifdef OPTIMIZE_VECTOR_OPERATIONS
     for ( ; l1 < l1_end - 1 ; l1 += 2, s += 2) {
-        result += ((l1[0] * (s[0] > 0 ? 1 : -1)) + (l1[1] * (s[1]) > 0 ? 1 : -1));
+        result += ((l1[0] * ((s[0] > 0) ? 1 : -1)) +
+                (l1[1] * ((s[1] > 0) ? 1 : -1)));
     }
 #endif /* OPTIMIZE_VECTOR_OPERATIONS */
 
