@@ -51,17 +51,10 @@ result_t
 cluster_calculate_leading_eigenvalue(const submatrix_t *matrix,
                                      const double *eigen_vector,
                                      double *eigen_value_out);
-static
-result_t
-cluster_optimize_division_iteration(submatrix_t *matrix,
-                                    double *s_vector,
-                                    double *improve,
-                                    int *indices,
-                                    double *delta_q_out);
 
 static
 result_t
-cluster_optimize_division_iteration2(submatrix_t *smat,
+cluster_optimize_division_iteration(submatrix_t *smat,
                                     double *s_vector,
                                     double *improve,
                                     int *indices,
@@ -490,11 +483,9 @@ cluster_optimize_division(submatrix_t *smat,
         goto l_cleanup;
     }
 
-    (void)cluster_optimize_division_iteration;
-    (void)cluster_optimize_division_iteration2;
     /* 2. Do iterations as long as there's improvement */
     do {
-        result = cluster_optimize_division_iteration2(smat,
+        result = cluster_optimize_division_iteration(smat,
                                                      s_vector,
                                                      improve,
                                                      indices,
@@ -517,101 +508,6 @@ l_cleanup:
 static
 result_t
 cluster_optimize_division_iteration(submatrix_t *smat,
-                                    double *s_vector,
-                                    double *improve,
-                                    int *indices,
-                                    double *delta_q_out)
-{
-    result_t result = E__UNKNOWN;
-    list_t *unmoved_scores = NULL;
-    node_t *scanner = NULL;
-    node_t *max_unmoved = NULL;
-    double q_0 = 0.0;
-    double delta_q = 0.0;
-    double q_score = 0.0;
-    int i = 0;
-    int k = 0;
-    /* A negative value will never be the max since the last improvement is always 0 */
-    double max_improvement_value = -1.0;
-    int max_improvement_index = 0;
-
-    /* 1. Initialize list */
-    result = LIST_range(smat->g_length, &unmoved_scores);
-    if (E__SUCCESS != result) {
-        goto l_cleanup;
-    }
-
-    for (i = 0 ; i < smat->g_length ; ++i) {
-        /* 2. Calculate Q_0 */
-        q_0 = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector);
-
-        /* 3. Computing DeltaQ for the move of each unmoved vertex */
-        for (scanner = unmoved_scores->first ;
-                NULL != scanner ;
-                scanner = scanner->next) {
-            /* Calculate score when moving k */
-            k = scanner->index;
-            s_vector[k] *= -1;
-            q_score = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector);
-            s_vector[k] *= -1;
-            scanner->value = q_score - q_0;
-
-            /* Update max score */
-            if (NULL == max_unmoved) {
-                max_unmoved = scanner;
-            } else if (max_unmoved->value < scanner->value) {
-                max_unmoved = scanner;
-            }
-        }
-
-        /* 4. Move vertex max_score_index with a maximal score */
-        s_vector[max_unmoved->index] = -s_vector[max_unmoved->index];
-        indices[i] = max_unmoved->index;
-        if (0 == i) {
-            improve[i] = max_unmoved->value;
-        } else {
-            improve[i] = max_unmoved->value + improve[i - 1];
-        }
-
-        result = LIST_remove_node(unmoved_scores, max_unmoved);
-        if (E__SUCCESS != result) {
-            goto l_cleanup;
-        }
-        max_unmoved = NULL;
-
-        /* 5. Update max improvement */
-        if (max_improvement_value < improve[i]) {
-            max_improvement_index = i;
-            max_improvement_value = improve[i];
-        }
-    }
-
-    /* 6. Apply the max improvement to the s-vector */
-    for (i = smat->g_length - 1 ; i > max_improvement_index ; --i) {
-        s_vector[indices[i]] *= -1;
-    }
-
-    if (max_improvement_index == smat->g_length - 1) {
-        delta_q = 0.0;
-    } else {
-        delta_q = improve[max_improvement_index];
-    }
-
-    *delta_q_out = delta_q;
-
-    /* Success */
-    result = E__SUCCESS;
-l_cleanup:
-
-    LIST_destroy(unmoved_scores);
-    unmoved_scores = NULL;
-
-    return result;
-}
-
-static
-result_t
-cluster_optimize_division_iteration2(submatrix_t *smat,
                                     double *s_vector,
                                     double *improve,
                                     int *indices,

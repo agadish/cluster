@@ -19,22 +19,39 @@
 result_t
 SPMAT_LIST_allocate(int n, matrix_t **mat);
 
-result_t
-SPMAT_LIST_write_neighbors(const matrix_t *matrix, FILE *file);
-
+/*
+ * Calculate the 1-norm of a given submatrix
+ *
+ * @param submatrix The submatrix
+ * @param tmp_rows_sums Temp buffer with size n
+ */
 double
 SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
                             double *tmp_row_sums);
 
+/*
+ * Multiply the submatrix with a given vector, to a pre-allocated buffer
+ *
+ * @param submatrix The submatrix
+ * @param vector Buffer to multiply with
+ * @param result pre-allocated buffer
+ */
 void
 SUBMAT_SPMAT_LIST_mult(const submatrix_t *submatrix,
                        const double *vector,
                        double *result);
 
+/**
+ * Calculate the Q of the submatrix with a given vector using the formula
+ * learned in class
+ */
 double
 SUBMAT_SPMAT_LIST_calculate_q(const submatrix_t *submatrix,
                               const double *s_vector);
 
+/**
+ * Split a submatrix into two submatrices accordingly to a given s-vector
+ */
 result_t
 SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
         const double * vector_s,
@@ -42,6 +59,9 @@ SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
         submatrix_t **matrix1_out,
         submatrix_t **matrix2_out);
 
+/**
+ * Calculate the the improved formula Q score within algorithm 4
+ */
 double
 SUBMAT_SPMAT_LIST_calc_q_score(const submatrix_t *smat,
                        const double *vector,
