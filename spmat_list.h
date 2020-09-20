@@ -47,4 +47,10 @@ SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
                         submatrix_t **split1_out,
                         submatrix_t **split2_out);
 
+double
+SUBMAT_SPMAT_LIST_calc_q_score(const submatrix_t *smat,
+                       const double *vector,
+                       double row);
+
+
 #endif /* __SPMAT_LIST_H__ */
