@@ -41,7 +41,6 @@ result_t
 cluster_calculate_leading_eigenvalue(const submatrix_t *matrix,
                                      const double *eigen_vector,
                                      double *eigen_value_out);
-#if 0
 static
 result_t
 cluster_optimize_division_iteration(submatrix_t *matrix,
@@ -49,7 +48,7 @@ cluster_optimize_division_iteration(submatrix_t *matrix,
                                     double *improve,
                                     int *indices,
                                     double *delta_q_out);
-#endif
+
 static
 result_t
 cluster_optimize_division_iteration2(submatrix_t *smat,
@@ -515,6 +514,8 @@ cluster_optimize_division(submatrix_t *smat,
         goto l_cleanup;
     }
 
+    (void)cluster_optimize_division_iteration;
+    (void)cluster_optimize_division_iteration2;
     /* 2. Do iterations as long as there's improvement */
     do {
         result = cluster_optimize_division_iteration2(smat,
@@ -525,6 +526,7 @@ cluster_optimize_division(submatrix_t *smat,
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
+        DEBUG_PRINT("delta_q is %f", delta_q);
     } while (IS_POSITIVE(delta_q));
 
     result = E__SUCCESS;
@@ -536,7 +538,6 @@ l_cleanup:
     return result;
 }
 
-#if 0
 static
 result_t
 cluster_optimize_division_iteration(submatrix_t *smat,
@@ -629,7 +630,6 @@ l_cleanup:
 
     return result;
 }
-#endif
 
 static
 result_t
@@ -662,6 +662,7 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
             /* Calculate score when moving k */
             k = scanner->index;
             s_vector[k] *= -1;
+            
             scanner->value = SUBMAT_SPMAT_LIST_calc_q_score(smat, s_vector, k);
             s_vector[k] *= -1;
 
@@ -672,6 +673,7 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
                 max_unmoved = scanner;
             }
         }
+        DEBUG_PRINT("max_unmoved index %d score %f", max_unmoved->index, max_unmoved->value);
 
         /* 4. Move vertex max_score_index with a maximal score */
         s_vector[max_unmoved->index] = -s_vector[max_unmoved->index];
@@ -694,6 +696,7 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
             max_improvement_value = improve[i];
         }
     }
+    DEBUG_PRINT("moving node %d with value %f", max_improvement_index, max_improvement_value);
 
     /* 6. Apply the max improvement to the s-vector */
     for (i = smat->g_length - 1 ; i > max_improvement_index ; --i) {
@@ -717,5 +720,4 @@ l_cleanup:
 
     return result;
 }
-
 

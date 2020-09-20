@@ -27,6 +27,20 @@ double
 VECTOR_scalar_multiply(const double * l1, const double * l2, size_t n);
 
 /**
+ * @purpose Calculate the scalar multiplication between two vectors
+ *
+ * @param l1 First vector - must be valid n-sized double array!
+ * @param l2 Second vector - must be valid n-sized double array!
+ * @param n The length of the vectors
+ *
+ * @return The scalar multiplication result
+ * @remark The vectors must be valid
+ */
+double
+VECTOR_scalar_multiply_with_s(const double * l1, const double * s, size_t n);
+
+
+/**
  * Create a random vector
  *
  * @param length The vector's length

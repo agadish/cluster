@@ -43,6 +43,10 @@ typedef struct spmat_data_s {
 
 #define GET_ROW(matrix, row_index) (GET_ROWS_ARRAY(matrix)[row_index])
 
+#define SPMAT_GET_EXPECTED_VALUE(smat, i, j) (                              \
+    (smat->adj->neighbors[(i)] * smat->adj->neighbors_div_M[(j)])           \
+)
+
 
 /* Functions Declarations ****************************************************/
 /**
@@ -117,12 +121,12 @@ spmat_list_get_rows_sums(const submatrix_t *smat,
  *
  * @return The expected value
  */
-#ifndef __DEBUG__
+#if 0
 inline
-#endif /* __DEBUG __*/
 static
 double
 submat_spmat_get_expected_value(const submatrix_t *smat, int i, int j);
+#endif
 
 static
 double
@@ -663,16 +667,17 @@ l_cleanup:
     return result;
 }
 
-#ifndef __DEBUG__
+
+#if 0
 inline
-#endif /* __DEBUG __*/
 static
 double
 submat_spmat_get_expected_value(const submatrix_t *smat, int i, int j)
 {
     const int *k = smat->adj->neighbors;
-    return ((double)k[i] * (double)k[j]) / ((double)smat->adj->M);
+    return (k[i] * k[j]) / ((double)smat->adj->M);
 }
+#endif
 
 static
 void
@@ -707,8 +712,8 @@ spmat_list_get_rows_sums(const submatrix_t *smat,
                 current_cell = 0.0;
             }
 
-            current_cell -= submat_spmat_get_expected_value(smat, row_i, col_i);
-            DEBUG_PRINT("mod[%d,%d]=%f", row_g, col_g, current_cell);
+            current_cell -= SPMAT_GET_EXPECTED_VALUE(smat, row_i, col_i);
+            /* DEBUG_PRINT("mod[%d,%d]=%f", row_g, col_g, current_cell); */
             current_sum += current_cell;
         }
         vector[row_g] = current_sum;
@@ -777,34 +782,33 @@ SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
             tcol_i = smat->g[tcol_g];
 
             /* 1. Set s as the next member with greater/equal index */
-            for (; (NULL != s) && (s->index) < tcol_g ; s = s->next) {
-                DEBUG_PRINT("increasing s_index from %d (tcol_g is %d)", s->index, tcol_g);
-            }
+            for (; (NULL != s) && (s->index) < tcol_g ; s = s->next);
+                /* DEBUG_PRINT("increasing s_index from %d (tcol_g is %d)", s->index, tcol_g); */
 
             /* 2. Check if row is over */
             if ((NULL == s) || (s->index > tcol_g)) {
-                if (NULL != s) {
-                    DEBUG_PRINT("s=%p, tcol_g=%d s->index=%d", (void *)s, tcol_g, s->index);
-                } else {
-                    DEBUG_PRINT("s=%p, tcol_g=%d", (void *)s, tcol_g);
-                }
+                /* if (NULL != s) { */
+                /*     DEBUG_PRINT("s=%p, tcol_g=%d s->index=%d", (void *)s, tcol_g, s->index); */
+                /* } else { */
+                /*     DEBUG_PRINT("s=%p, tcol_g=%d", (void *)s, tcol_g); */
+                /* } */
                 a = 0.0;
             } else {
                 a = s->value;
             }
 
             /* 3. Check if the found index is what we're searching for */
-            expected_value = submat_spmat_get_expected_value(smat, trow_i, tcol_i);
+            expected_value = SPMAT_GET_EXPECTED_VALUE(smat, trow_i, tcol_i);
             if (tcol_g == trow_g) {
-                DEBUG_PRINT("lol found diag");
+                /* DEBUG_PRINT("lol found diag"); */
                 diag_add = smat->add_to_diag - tmp_row_sums[tcol_g];
             } else {
                 diag_add = 0.0;
             }
             cell_value = a - expected_value + diag_add;
             current_row_norm += fabs(cell_value);
-            DEBUG_PRINT("1norm[%d,%d]:a=%f,expected=%f,add=%f", tcol_g, trow_g, a, expected_value, diag_add);
-            DEBUG_PRINT("cell[%d,%d]=%f", tcol_g, trow_g, cell_value);
+            /* DEBUG_PRINT("1norm[%d,%d]:a=%f,expected=%f,add=%f", tcol_g, trow_g, a, expected_value, diag_add); */
+            /* DEBUG_PRINT("cell[%d,%d]=%f", tcol_g, trow_g, cell_value); */
         }
 
         norm = MAX(norm, current_row_norm);
@@ -812,6 +816,105 @@ SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
 
     /* Success */
     return norm;
+}
+
+static
+double
+submat_spmat_list_mult_row_with_s_no_hat(const submatrix_t *smat,
+                                         int row_g,
+                                         const double *s_vector)
+{
+    double result = 0.0;
+    list_t *l = NULL;
+    node_t *s = NULL;
+    int col_g = 0;
+    int col_i = 0;
+    int row_i = 0;
+    double a = 0.0;
+    double expected_value = 0.0;
+    bool_t is_zero = TRUE;
+
+    row_i = smat->g[row_g];
+
+    l = GET_ROW(smat->orig, row_g).list;
+    if (NULL != l) {
+        /* If line is NULL, continue with calculation */
+        s = l->first;
+    }
+
+    /* Go over the columns */
+    for (col_g = 0 ;  col_g < smat->g_length ; ++col_g) {
+        col_i = smat->g[col_g];
+
+        expected_value = SPMAT_GET_EXPECTED_VALUE(smat, row_i, col_i);
+
+        /* Skip irrelevant values from original matrix */
+        while ((NULL != s) && (s->index < col_g)) {
+            s = s->next;
+        }
+
+        /* If column is non-zero take s-value */
+        is_zero = (NULL == s) || (s->index > col_g);
+        if (is_zero) {
+            a = 0.0;
+        } else {
+            a = s->value;
+            s = s->next;
+        }
+
+        result += (a - expected_value) * s_vector[col_g];
+    }
+
+    result += (smat->add_to_diag) * s_vector[row_g];
+
+    return result;
+}
+
+static
+double
+submat_spmat_list_mult_row_with_s_no_hat_improved(const submatrix_t *smat,
+                                         int row_g,
+                                         const double *s_vector)
+{
+    double result = 0.0;
+    list_t *l = NULL;
+    node_t *s = NULL;
+    int col_i = 0;
+    int row_i = 0;
+    double expected_value = 0.0;
+    int prev_g = 0;
+    int current_g = 0;
+    double kj_zeroes_sums = 0.0;
+    double values_sum = 0.0;
+
+    row_i = smat->g[row_g];
+
+    l = GET_ROW(smat->orig, row_g).list;
+    if (NULL != l) {
+        /* If line is NULL, continue with calculation */
+        for (s = l->first ; NULL != s ; s = s->next) {
+            current_g = s->index;
+
+            /* Add previous 0.0 cells */
+            kj_zeroes_sums += VECTOR_scalar_multiply(&s_vector[prev_g],
+                                                     &smat->adj->neighbors_div_M[prev_g],
+                                                     current_g - prev_g);
+            prev_g = current_g;
+
+            expected_value = SPMAT_GET_EXPECTED_VALUE(smat, row_i, col_i);
+            values_sum += (s->value - expected_value) * (s_vector[current_g] > 0 ? 1 : -1);
+        }
+    }
+    current_g = smat->g_length;
+    kj_zeroes_sums += VECTOR_scalar_multiply(&s_vector[prev_g],
+                                             &smat->adj->neighbors_div_M[prev_g],
+                                             current_g - prev_g);
+    kj_zeroes_sums *= smat->adj->neighbors[row_g];
+
+
+    result = values_sum - kj_zeroes_sums + (smat->add_to_diag) * s_vector[row_g];
+
+    return result;
 }
 
 static
@@ -843,7 +946,7 @@ submat_spmat_list_mult_row_with_s(const submatrix_t *smat,
     for (col_g = 0 ;  col_g < smat->g_length ; ++col_g) {
         col_i = smat->g[col_g];
 
-        expected_value = submat_spmat_get_expected_value(smat, row_i, col_i);
+        expected_value = SPMAT_GET_EXPECTED_VALUE(smat, row_i, col_i);
 
         /* Skip irrelevant values from original matrix */
         while ((NULL != s) && (s->index < col_g)) {
@@ -984,11 +1087,12 @@ SUBMAT_SPMAT_LIST_calc_q_score(const submatrix_t *smat,
 	double expected_value = 0.0;
 	double q_score = 0.0;
     int row_i = 0;
+    (void)submat_spmat_list_mult_row_with_s_no_hat;
 
-    q_part1 = submat_spmat_list_mult_row_with_s(smat, row, vector);
+    q_part1 = submat_spmat_list_mult_row_with_s_no_hat_improved(smat, row, vector);
     row_i = smat->g[row];
-    expected_value = submat_spmat_get_expected_value(smat, row_i, row_i);
-    q_score = 4 * ((vector[row] * q_part1) + expected_value);
+    expected_value = 4 * SPMAT_GET_EXPECTED_VALUE(smat, row_i, row_i);
+    q_score = 4 * (vector[row] * q_part1) + expected_value;
 
     return q_score;
 }

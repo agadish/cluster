@@ -30,6 +30,11 @@ adjacency_matrix_read_neighbors_line(FILE * file,
                                      int line_index,
                                      double *tmp_buffer);
 
+static
+void
+adjacency_matrix_calculate_neighbors_div_M(adjacency_t *adj);
+
+
 
 /* Functions ************************************************************************************/
 static
@@ -149,6 +154,13 @@ ADJACENCY_MATRIX_open(const char *path,
         goto l_cleanup;
     }
 
+    adj->neighbors_div_M = (double *)malloc(sizeof(*(adj->neighbors_div_M)) *
+                                         matrix_n);
+    if (NULL == adj->neighbors_div_M) {
+        result = E__MALLOC_ERROR;
+        goto l_cleanup;
+    }
+
     /* 5. Initialize each line */
     /* 5.1. Allocate temporary neighbors buffer */
     tmp_neighbors_buffer = (double *)malloc(sizeof(*tmp_neighbors_buffer) *
@@ -169,6 +181,9 @@ ADJACENCY_MATRIX_open(const char *path,
         }
     }
 
+    /* 6. Calculate neighbosr div M for optimization */
+    adjacency_matrix_calculate_neighbors_div_M(adj);
+
     /* Success */
     *adj_out = adj;
     *matrix_out = matrix;
@@ -187,9 +202,21 @@ l_cleanup:
 void
 ADJACENCY_MATRIX_free(adjacency_t *adj)
 {
+    FREE_SAFE(adj->neighbors_div_M);
     FREE_SAFE(adj->neighbors);
     adj->n = 0;
     adj->M = 0;
     FREE_SAFE(adj);
 }
 
+
+static
+void
+adjacency_matrix_calculate_neighbors_div_M(adjacency_t *adj)
+{
+    int i = 0;
+
+    for (i = 0 ; i < adj->n ; ++i) {
+        adj->neighbors_div_M[i] = (double)adj->neighbors[i] / adj->M;
+    }
+}

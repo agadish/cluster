@@ -26,6 +26,7 @@
 typedef struct adjacency_s {
     int n;
     int *neighbors;
+    double *neighbors_div_M;
     int M;
 } adjacency_t;
 
