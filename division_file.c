@@ -1,6 +1,6 @@
 /**
  * @file division.c
- * @purpose The output file of the spmat division
+ * @purpose The output file of the spmat division,
  */
 
 /** Includes *************************************************************************************/

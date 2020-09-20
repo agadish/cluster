@@ -657,6 +657,10 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
     }
 
     for (i = 0 ; i < smat->g_length ; ++i) {
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
         /* 3. Computing DeltaQ for the move of each unmoved vertex */
         for (scanner = unmoved_scores->first ; NULL != scanner ; scanner = scanner->next) {
             /* Calculate score when moving k */

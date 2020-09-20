@@ -1,6 +1,6 @@
 /*
  * @file algorithm1.h
- * @purpose Compute algorithm 1 from the assignment
+ * @purpose Compute algorithm 1 from the assignment,
  */
 #ifndef __CLUSTER_H__
 #define __CLUSTER_H__

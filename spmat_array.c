@@ -20,7 +20,7 @@
 /* Structs *******************************************************************/
 typedef struct spmat_array_s {
     /* 3 arrays representing a sparse matrix: non zero elements array, their
-     * indexes array, and an array of the the first non zero element in every
+     * indexes array, and an array of the the first non zero element in every,
      * row
      */
     double *values;
