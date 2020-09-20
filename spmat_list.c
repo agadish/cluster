@@ -810,9 +810,9 @@ submat_spmat_list_mult_row_with_s(const submatrix_t *smat,
             a = 0.0;
         } else {
             a = s->value;
-            row_sum += (a - expected_value);
             s = s->next;
         }
+        row_sum += (a - expected_value);
 
         result += (a - expected_value) * s_vector[col_g];
     }
@@ -842,24 +842,26 @@ SUBMAT_SPMAT_LIST_calculate_q(const submatrix_t *submatrix,
         mult_vmv += (s_vector[row_g] * current_row_mul);
     }
 
-    return mult_vmv / 2;
+    return mult_vmv;
 }
 
 result_t
 SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
                         const double *s_vector,
-                        submatrix_t *split1,
-                        submatrix_t *split2)
+                        submatrix_t **split1_out,
+                        submatrix_t **split2_out)
 {
     result_t result = E__UNKNOWN;
     int i = 0;
     int split1_length = 0;
     int split2_length = 0;
+    submatrix_t *split1 = NULL;
+    submatrix_t *split2 = NULL;
 
     /* 0. Input validation */
     /* 0.1. Null arguments */
     if ((NULL == smat) || (NULL == s_vector) ||
-            (NULL == split1) || (NULL == split2)) {
+            (NULL == split1_out) || (NULL == split2_out)) {
         result = E__NULL_ARGUMENT;
         goto l_cleanup;
     }
@@ -867,6 +869,16 @@ SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
     /* 0.2. Input matrix must be spmat list */
     if (MATRIX_TYPE_SPMAT_LIST != smat->adj->original->type) {
         result = E__INVALID_MATRIX_TYPE;
+        goto l_cleanup;
+    }
+
+    result = SUBMATRIX_create(smat->adj, &split1);
+    if (E__SUCCESS != result) {
+        goto l_cleanup;
+    }
+
+    result = SUBMATRIX_create(smat->adj, &split2);
+    if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
@@ -887,8 +899,14 @@ SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
     split2->g_length = split2_length;
 
     /* Success */
+    *split1_out = split1;
+    *split2_out = split2;
     result = E__SUCCESS;
 l_cleanup:
+    if (E__SUCCESS != result) {
+        SUBMATRIX_FREE_SAFE(split1);
+        SUBMATRIX_FREE_SAFE(split2);
+    }
 
     return result;
 }

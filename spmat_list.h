@@ -44,7 +44,7 @@ SUBMAT_SPMAT_LIST_calculate_q(const submatrix_t *submatrix,
 result_t
 SUBMAT_SPMAT_LIST_split(submatrix_t *smat,
                         const double *s_vector,
-                        submatrix_t *split1,
-                        submatrix_t *split2);
+                        submatrix_t **split1_out,
+                        submatrix_t **split2_out);
 
 #endif /* __SPMAT_LIST_H__ */

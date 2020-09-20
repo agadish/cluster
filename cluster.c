@@ -373,8 +373,8 @@ CLUSTER_divide_repeatedly(adjacency_matrix_t *adj, division_file_t *output_file)
         /* Network is divisible */
         result = SUBMAT_SPMAT_LIST_split(current_matrix,
                                          s_vector,
-                                         group1,
-                                         group2);
+                                         &group1,
+                                         &group2);
         if (E__SUCCESS != result) {
             goto l_cleanup;
         }
