@@ -29,18 +29,17 @@ result_t
 SPMAT_LIST_transpose(const matrix_t *matrix, matrix_t **transposed_out);
 
 double
-SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *submatrix);
+SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *submatrix,
+                            double *temp_n_sized_vector);
 
 void
 SUBMAT_SPMAT_LIST_mult(const submatrix_t *submatrix,
                        const double *vector,
-                       double diag_add,
                        double *result);
 
 double
 SUBMAT_SPMAT_LIST_calculate_q(const submatrix_t *submatrix,
-                              const double *s_vector,
-                              double add_to_diag);
+                              const double *s_vector);
 
 result_t
 SUBMAT_SPMAT_LIST_split(submatrix_t *smat,

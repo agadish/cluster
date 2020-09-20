@@ -51,6 +51,7 @@ SUBMATRIX_create(const adjacency_matrix_t *adj,
     smat->adj = adj;
     smat->g = g;
     smat->g_length = g_length;
+    smat->add_to_diag = 0.0;
 
     *smat_out = smat;
 

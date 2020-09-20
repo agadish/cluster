@@ -35,13 +35,22 @@ typedef struct submatrix_s submatrix_t;
 
 /* Structs *******************************************************************/
 
-/* A viewer of an existing matrix using subindexes */
+/*
+ * A representation of a submatrix given the whole matrix and subindexes.
+ * The submatrix has virtual values, given by the following furmula:
+ *
+ * [ ^  ]     [    ]     ki*kj            (  g )             
+ * | B  |  =  | A  |  -  -----  - delta * ( f  )  +  delta *  add_to_diag 
+ * [ ij ]     [ ij ]       M         ij   (  i )        ij
+ */
 struct submatrix_s {
     const adjacency_matrix_t *adj;
     /* Count of subindexes */
     int g_length;
     /* Array of subindexes of this matrix */
     int *g;
+    /* A constant value to add to the diag */
+    double add_to_diag;
 };
 
 

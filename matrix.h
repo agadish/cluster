@@ -38,8 +38,8 @@
 #define MATRIX_DECREASE_ROWS_SUMS_FROM_DIAG(m) \
     MATRIX_VTABLE((m))->decrease_rows_sums_from_diag((m))
 
-#define MATRIX_DIVIDE(m, s_vec, s_ind, m1_out, m2_out) \
-    MATRIX_VTABLE((m))->divide((m), (s_vec), (s_ind), (m1_out), (m2_out))
+#define MATRIX_SPLIT(m, s_vec, s_ind, m1_out, m2_out) \
+    MATRIX_VTABLE((m))->split((m), (s_vec), (s_ind), (m1_out), (m2_out))
 
 #define MATRIX_FREE_SAFE(m) do {                            \
     if (NULL != (m)) {                                      \
@@ -117,7 +117,7 @@ typedef result_t (*matrix_decrease_rows_sums_from_diag_f)(matrix_t *matrix);
  * @remark On success, matrix will be freed. On error, matrix will not be freed
  * @remark matrix1 and matrix2 must be freed using MATRIX_FREE(_SAFE) macro
  */
-typedef result_t (*matrix_divide_f)(matrix_t *matrix,
+typedef result_t (*matrix_split_f)(matrix_t *matrix,
                                     const double *s_vector,
                                     int *temp_s_indexes,
                                     matrix_t **matrix1_out,
@@ -134,8 +134,7 @@ typedef struct matrix_vtable_s {
     matrix_mult_f mult; /* Calculate M*v */
     matrix_mult_vmv_f mult_vmv; /* Calculate v^T*M*v */
     matrix_get_1norm_f get_1norm;
-    matrix_decrease_rows_sums_from_diag_f decrease_rows_sums_from_diag;
-    matrix_divide_f divide;
+    matrix_split_f split;
 } matrix_vtable_t;
 
 /* A square matrix implementation */

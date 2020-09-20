@@ -40,7 +40,6 @@ static
 result_t
 cluster_calculate_leading_eigenvalue(const submatrix_t *matrix,
                                      const double *eigen_vector,
-                                     double onenorm,
                                      double *eigen_value_out);
 static
 result_t
@@ -89,7 +88,6 @@ static
 result_t
 cluster_calculate_leading_eigenvalue(const submatrix_t *matrix,
                                      const double *eigen_vector,
-                                     double onenorm,
                                      double *eigen_value_out)
 {
     result_t result = E__UNKNOWN;
@@ -107,8 +105,7 @@ cluster_calculate_leading_eigenvalue(const submatrix_t *matrix,
     /* 1. Multiply the matrice with the vector */
     /* 2.1. Caculate eigen norm */
     eigen_value_numerator = SUBMAT_SPMAT_LIST_calculate_q(matrix,
-                                                          eigen_vector,
-                                                          onenorm);
+                                                          eigen_vector);
     eigen_value_denominator = VECTOR_scalar_multiply(eigen_vector,
                                                      eigen_vector,
                                                      matrix->adj->original->n);
@@ -150,17 +147,20 @@ cluster_divide(submatrix_t *smat,
 
 
     /* 1. Calculate leading eigenvector */
-    /* 1.1. Randomize b-vector */
     n = smat->g_length;
+
+    /* 1.1. Calculate the 1-norm of the matrix, using b-vector as temp vector */
+    onenorm = SUBMAT_SPMAT_LIST_get_1norm(smat, temp_b_vector);
+
+    /* 1.2. Randomize b-vector */
     VECTOR_random_vector(n, temp_b_vector);
 
-    /* 1.2. Calculate the 1-norm of the matrix */
-    onenorm = SUBMAT_SPMAT_LIST_get_1norm(smat);
+    /* 1.3. Add the 1-norm to the diag for the eigen calculation */
+    smat->add_to_diag = onenorm;
 
-    /* 1.3. Calculate eigen vector */
+    /* 1.4. Calculate eigen vector */
     result = EIGEN_calculate_eigen(smat,
                                    temp_b_vector,
-                                   onenorm,
                                    temp_eigen_vector);
     if (E__SUCCESS != result) {
         goto l_cleanup;
@@ -170,13 +170,13 @@ cluster_divide(submatrix_t *smat,
     /* 3.1. Calculate eigenvalue plus 1-norm */ 
     result = cluster_calculate_leading_eigenvalue(smat,
                                                   temp_eigen_vector,
-                                                  onenorm,
                                                   &leading_eigenvalue);
     if (E__SUCCESS != result) {
         goto l_cleanup;
     }
 
-    /* 3.2. Decrease 1-norm */ 
+    /* 3.2. Decrease 1-norm from the result, restore the diag variable */ 
+    smat->add_to_diag = 0.0;
     leading_eigenvalue -= onenorm;
 
     /* 3. Check divisibility #1 */
@@ -206,7 +206,7 @@ cluster_divide(submatrix_t *smat,
     }
 
     /* 5. Calculating stbs */
-    stbs = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector, 0.0);
+    stbs = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector);
 
     /* 6. Check divisibility #2 */
     if (0 >= stbs) {
@@ -540,14 +540,14 @@ cluster_optimize_division_iteration(submatrix_t *smat,
 
     for (i = 0 ; i < smat->g_length ; ++i) {
         /* 2. Calculate Q_0 */
-        q_0 = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector, 0.0);
+        q_0 = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector);
 
         /* 3. Computing DeltaQ for the move of each unmoved vertex */
         for (scanner = unmoved_scores->first ; NULL != scanner ; scanner = scanner->next) {
             /* Calculate score when moving k */
             k = scanner->index;
             s_vector[k] *= -1;
-            q_score = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector, 0.0);
+            q_score = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector);
             s_vector[k] *= -1;
             scanner->value = q_score - q_0;
 

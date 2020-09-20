@@ -55,11 +55,6 @@ static
 double
 matrix_raw_get_1norm(const matrix_t *matrix);
 
-static
-result_t
-matrix_raw_decrease_row_sum_from_diag(matrix_t *matrix);
-
-
 /**
  * @purpose Given a matrix A and a line-vector b, Computes bA
  * @param matrix input Matirx A [nxn]
@@ -78,7 +73,7 @@ matrix_raw_vector_mat_multiply(const matrix_t *matrix,
 
 static
 result_t
-matrix_raw_divide(matrix_t *matrix,
+matrix_raw_split(matrix_t *matrix,
                   const double *vector_s,
                   int *temp_s_indexes,
                   matrix_t **matrix1_out,
@@ -92,8 +87,7 @@ const matrix_vtable_t MATRIX_RAW_VTABLE = {
     .mult = matrix_raw_mat_vector_multiply,
     .mult_vmv = NULL,
     .get_1norm = matrix_raw_get_1norm,
-    .decrease_rows_sums_from_diag = matrix_raw_decrease_row_sum_from_diag,
-    .divide = matrix_raw_divide,
+    .split = matrix_raw_split,
 };
 
 
@@ -256,42 +250,9 @@ matrix_raw_get_1norm(const matrix_t *matrix)
 
     return max_col_sum;
 }
-
 static
 result_t
-matrix_raw_decrease_row_sum_from_diag(matrix_t *matrix)
-{
-    result_t result = E__UNKNOWN;
-    double current_row_sum = 0.0;
-    int row = 0;
-    int col = 0;
-    
-    /* 0. Input validation */
-    if (NULL == matrix) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
-
-    /* Go over each col */
-    for (row = 0 ; row < matrix->n ; ++row) {
-        /* Sum up the row */
-        for (col = 0 ; col < matrix->n ; ++col) {
-            current_row_sum += MATRIX_AT(matrix, row, col);
-        }
-
-        /* Decrease row sum from diag */
-        MATRIX_AT(matrix, row, row) -= current_row_sum;
-    }
-
-    result = E__SUCCESS;
-l_cleanup:
-    
-    return result;
-}
-
-static
-result_t
-matrix_raw_divide(matrix_t *matrix,
+matrix_raw_split(matrix_t *matrix,
                   const double * vector_s,
                   int * temp_s_indexes,
                   matrix_t **matrix1_out,

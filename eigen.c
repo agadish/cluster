@@ -24,7 +24,6 @@
 result_t
 EIGEN_calculate_eigen(const submatrix_t *smat,
                       double *b_vector,
-                      double onenorm,
                       double *eigen)
 {
     result_t result = E__UNKNOWN;
@@ -55,7 +54,7 @@ EIGEN_calculate_eigen(const submatrix_t *smat,
         vector_res = b_vector;
         b_vector = temp;
 
-        SUBMAT_SPMAT_LIST_mult(smat, b_vector, onenorm, vector_res);
+        SUBMAT_SPMAT_LIST_mult(smat, b_vector, vector_res);
         result = VECTOR_normalize(vector_res, n);
         if (E__SUCCESS != result) {
             goto l_cleanup;

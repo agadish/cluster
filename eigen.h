@@ -26,7 +26,6 @@
 result_t
 EIGEN_calculate_eigen(const submatrix_t *smat,
                       double *b_vector,
-                      double onenorm,
                       double *eigen);
 
 #endif /* __EIGEN_H__ */

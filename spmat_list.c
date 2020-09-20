@@ -32,8 +32,6 @@ typedef struct spmat_row_s {
 typedef struct spmat_data_s {
     /* Begin of row's linked list */
     spmat_row_t *rows;
-    double *columns_sum;
-    double *temp_buffer; /* n-sized buffer required for various calculations */
 } spmat_data_t;
 
 
@@ -99,24 +97,44 @@ spmat_list_reduce_row(const spmat_row_t *original_row,
                        const int * s_indexes,
                        spmat_row_t *row_out);
 
-static
-double
-spmat_list_get_1norm(const matrix_t *matrix);
-
-static 
-result_t
-spmat_list_decrease_rows_sums_from_diag(matrix_t *matrix);
-
 /**
- * @see matrix_divide_f on matrix.h
+ * @see matrix_split_f on matrix.h
  */
 static
 result_t
-spmat_list_divide_matrix(matrix_t *matrix,
+spmat_list_split_matrix(matrix_t *matrix,
         const double * vector_s,
         int *temp_s_index,
         matrix_t **matrix1_out,
         matrix_t **matrix2_out);
+
+static
+void
+spmat_list_get_rows_sums(const submatrix_t *smat,
+                         double *vector);
+
+/**
+ * Calculat the expected neighbors number given indexes of a cell.
+ * The given indexes must be accordingly to the actual matrix, not g_indexes.
+ *
+ * @param smat The submatrix
+ * @param i The row index in the complete matrix
+ * @param j The column index in the complete matrix
+ *
+ * @return The expected value
+ */
+#ifndef __DEBUG__
+inline
+#endif /* __DEBUG __*/
+static
+double
+submat_spmat_get_expected_value(const submatrix_t *smat, int i, int j);
+
+static
+double
+submat_spmat_list_mult_row_with_s(const submatrix_t *submatrix,
+                                  int row_g,
+                                  const double *s_vector);
 
 
 /* Virtual Table *************************************************************/
@@ -125,9 +143,7 @@ const matrix_vtable_t SPMAT_LIST_VTABLE = {
     .free = spmat_list_free,
     .mult = spmat_list_mult,
     .mult_vmv = NULL,
-    .get_1norm = spmat_list_get_1norm,
-    .decrease_rows_sums_from_diag = spmat_list_decrease_rows_sums_from_diag,
-    .divide = spmat_list_divide_matrix
+    .split = spmat_list_split_matrix
 };
 
 
@@ -139,7 +155,6 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     matrix_t *mat = NULL;
     spmat_data_t *spmat_data = NULL;
     spmat_row_t *rows_array = NULL;
-    double *columns_sum = NULL;
     int rows_array_size = 0;
 
     /* 0. Input validation */
@@ -189,23 +204,7 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     /* 4.3. Assign rows */
     spmat_data->rows = rows_array;
 
-    /* 5. Columns sums */
-    columns_sum = (double *)malloc(sizeof(*columns_sum) * n);
-    if (NULL == columns_sum) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
-    (void)memset(columns_sum, 0, sizeof(*columns_sum) * n);
-    spmat_data->columns_sum = columns_sum;
-
-    /* Temp buffer */
-    spmat_data->temp_buffer = (double *)malloc(sizeof(*columns_sum) * n);
-    if (NULL == spmat_data->temp_buffer) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
-
-    /* 7. Validate matrix */
+    /* 5. Validate matrix */
     mat->private = (void *)spmat_data;
     
     DEBUG_PRINT("%s: addr %p n=%d\n", __func__, (void *)mat, n);
@@ -246,8 +245,6 @@ spmat_list_free(matrix_t *mat)
                 rows_array = NULL;
             }
             
-            FREE_SAFE(spmat_data->columns_sum);
-            FREE_SAFE(spmat_data->temp_buffer);
             FREE_SAFE(spmat_data);
             mat->private = NULL;
         }
@@ -259,7 +256,6 @@ result_t
 spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
 {
     result_t result = E__UNKNOWN;
-    spmat_data_t *matrix_data = NULL;
     spmat_row_t *row = NULL;
     node_t *prev_node = NULL;
     node_t *next_node = NULL;
@@ -277,7 +273,6 @@ spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
     }
 
     /* 1. Initialisations */
-    matrix_data = GET_SPMAT_DATA(mat);
     row = &GET_ROW(mat, row_index);
     prev_node = NULL;
     if (NULL != row->list) {
@@ -337,7 +332,6 @@ spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
             }
 
             row->sum += values[col];
-            matrix_data->columns_sum[col] += fabs(values[col]);
         }
     }
 
@@ -461,7 +455,7 @@ l_cleanup:
 
 static
 result_t
-spmat_list_divide_matrix(matrix_t *matrix,
+spmat_list_split_matrix(matrix_t *matrix,
         const double * vector_s,
         int *temp_s_indexes,
         matrix_t **matrix1_out,
@@ -558,6 +552,7 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
 {
     spmat_row_t *relevant_row_pointer = NULL;
     const node_t *scanner = NULL;
+    const list_t *list = NULL;
     int row = 0;
     int col = 0;
     int last_scanner_index = 0;
@@ -580,21 +575,24 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
             last_scanner_index = 0;
             relevant_row_pointer = &GET_ROW(mat_in, row);
             printf("(");
-            for (scanner = relevant_row_pointer->list->first ;
-                    NULL != scanner ;
-                    scanner = scanner->next) {
+            list = relevant_row_pointer->list;
+            if (NULL != list) {
+                for (scanner = list->first ;
+                        NULL != scanner ;
+                        scanner = scanner->next) {
 
-                for ( ; scanner->index > col ; ++col){
-                    printf("%5.2f ", 0.0);
+                    for ( ; scanner->index > col ; ++col){
+                        printf("%5.2f ", 0.0);
+                    }
+
+                    printf("%5.2f ", scanner->value);
+                    col++;
+
+                    if (NULL != scanner) {
+                        last_scanner_index = col;
+                    }
+
                 }
-
-                printf("%5.2f ", scanner->value);
-                col++;
-
-                if (NULL != scanner) {
-                    last_scanner_index = col;
-                }
-
             }
 
             for ( ; last_scanner_index < mat_in->n ; ++last_scanner_index) {
@@ -605,61 +603,6 @@ SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in)
     }
 
 }
-
-static
-double
-spmat_list_get_1norm(const matrix_t *matrix)
-{
-    double norm = 0.0;
-    const spmat_data_t *data = NULL;
-    const double *columns_sum = NULL;
-    int i = 0;
-
-    /* Go over all the columns' norms */
-    data = GET_SPMAT_DATA(matrix);
-    columns_sum = data->columns_sum;
-    for (i = 0 ; i < matrix->n ; ++i) {
-        norm = fabs(MAX(norm, columns_sum[i]));
-    }
-
-    return norm;
-}
-
-
-static
-result_t
-spmat_list_decrease_rows_sums_from_diag(matrix_t *matrix)
-{
-    result_t result = E__UNKNOWN;
-    double *line_vector_tmp = NULL;
-    int i = 0;
-    double row_sum = 0.0;
-
-    /* 0. Input validation */
-    if (NULL == matrix) {
-        result = E__NULL_ARGUMENT;
-        goto l_cleanup;
-    }
-
-    line_vector_tmp = GET_SPMAT_DATA(matrix)->temp_buffer;
-    (void)memset(line_vector_tmp, 0, sizeof(*line_vector_tmp) * matrix->n);
-    for (i = 0 ; i < matrix->n ; ++i) {
-        row_sum = GET_ROW(matrix, i).sum;
-        line_vector_tmp[i] = row_sum;
-        result = MATRIX_ADD_ROW(matrix, line_vector_tmp, i);
-        if (E__SUCCESS != result) {
-            goto l_cleanup;
-        }
-        line_vector_tmp[i] = 0.0;
-    }
-
-    /* Success */
-    result = E__SUCCESS;
-l_cleanup:
-
-    return result;
-}
-
 
 result_t
 SPMAT_LIST_write_neighbors(const matrix_t *matrix, FILE *file)
@@ -693,55 +636,130 @@ l_cleanup:
     return result;
 }
 
+#ifndef __DEBUG__
+inline
+#endif /* __DEBUG __*/
+static
 double
-SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *submatrix)
+submat_spmat_get_expected_value(const submatrix_t *smat, int i, int j)
 {
-    const matrix_t *matrix = NULL;
-    double norm = 0.0;
-    double current_row_norm = 0.0;
+    const int *k = smat->adj->neighbors;
+    return ((double)k[i] * (double)k[j]) / ((double)smat->adj->M);
+}
+
+static
+void
+spmat_list_get_rows_sums(const submatrix_t *smat,
+                         double *vector)
+{
     int row_g = 0;
     int row_i = 0;
     int col_g = 0;
     int col_i = 0;
-    list_t *l = NULL;
+    double current_sum = 0.0;
+    double current_cell = 0.0;
+    list_t *current_list = NULL;
     node_t *s = NULL;
 
+    for (row_g = 0 ; row_g < smat->g_length ; ++row_g) {
+        current_sum = 0.0;
+        row_i = smat->g[row_g];
+        current_list = GET_ROW(smat->adj->original, row_i).list;
+        if (NULL != current_list) {
+            s = current_list->first;
+        }
+        for (col_g = 0 ; col_g < smat->g_length ; ++col_g) {
+            col_i = smat->g[col_g];
+            /* Skip irrelevant values from original matrix */
+            while ((NULL != s) && (s->index < col_i)) {
+                s = s->next;
+            }
+            if ((NULL != s) && (s->index == col_i)) {
+                current_cell = s->value;
+            } else {
+                current_cell = 0.0;
+            }
+
+            current_cell -= submat_spmat_get_expected_value(smat, row_i, col_i);
+            DEBUG_PRINT("mod[%d,%d]=%f", row_g, col_g, current_cell);
+            current_sum += current_cell;
+        }
+        vector[row_g] = current_sum;
+    }
+}
+
+double
+SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
+                            double *tmp_row_sums)
+{
+    const matrix_t *matrix = NULL;
+    double norm = 0.0;
+    double current_row_norm = 0.0;
+    int trow_g = 0;
+    int trow_i = 0;
+    int tcol_g = 0;
+    int tcol_i = 0;
+    list_t *l = NULL;
+    node_t *s = NULL;
+    double cell_value = 0.0;
+    double a = 0.0;
+    double diag_add = 0.0;
+    double expected_value;
+
     /* TODO: Handle zero sized */
-    if (submatrix->g_length == 0){ 
+    if (smat->g_length == 0){ 
         printf("WARNING WARNING WARNING DAMN SUBMAT_SPMAT_LIST_get_1norm got zero sized mat\n");
     }
-    matrix = submatrix->adj->transposed;
+    matrix = smat->adj->transposed;
     /* The 1-norm is the max column abs sum.
      * We will go over the transpoed matrix' *ROWS* */
 
-    for (row_g = 0 ; row_g < submatrix->g_length ; ++row_g) {
+    spmat_list_get_rows_sums(smat, tmp_row_sums);
+
+    for (trow_g = 0 ; trow_g < smat->g_length ; ++trow_g) {
         /* Go over the sub rows */
         current_row_norm = 0.0;
-        row_i = submatrix->g[row_g];
-        l = GET_ROW(matrix, row_i).list;
+        trow_i = smat->g[trow_g];
+        l = GET_ROW(matrix, trow_i).list;
         if (NULL == l) {
             /* Zeroes row cannot increase norm */
             continue;
         }
 
         s = l->first;
-        for (col_g = 0 ;  col_g < submatrix->g_length ; ++col_g) {
+        for (tcol_g = 0 ;  tcol_g < smat->g_length ; ++tcol_g) {
             /* Go over the sub columns */
-            col_i = submatrix->g[row_i];
+            tcol_i = smat->g[tcol_g];
 
             /* 1. Set s as the next member with greater/equal index */
-            for (; (NULL != s) && (s->index) > col_i ; s = s->next);
+            for (; (NULL != s) && (s->index) < tcol_i ; s = s->next) {
+                DEBUG_PRINT("increasing s_index from %d (tcol_i is %d)", s->index, tcol_i);
+            }
 
             /* 2. Check if row is over */
-            if (NULL == s) {
-                /* Nothing to do in this row */
-                break;
+            if ((NULL == s) || (s->index > tcol_i)) {
+                if (NULL != s) {
+                    DEBUG_PRINT("s=%p, tcol_i=%d s->index=%d", (void *)s, tcol_i, s->index);
+                } else {
+                    DEBUG_PRINT("s=%p, tcol_i=%d", (void *)s, tcol_i);
+                }
+                a = 0.0;
+            } else {
+                a = s->value;
             }
 
             /* 3. Check if the found index is what we're searching for */
-            if (col_i == s->index) {
-                current_row_norm += fabs(s->value);
+            expected_value = submat_spmat_get_expected_value(smat, trow_i, tcol_i);
+            if (tcol_g == trow_g) {
+                DEBUG_PRINT("lol found diag");
+                diag_add = smat->add_to_diag - tmp_row_sums[tcol_g];
+            } else {
+                diag_add = 0.0;
             }
+            cell_value = a - expected_value + diag_add;
+            current_row_norm += fabs(cell_value);
+            DEBUG_PRINT("1norm[%d,%d]:a=%f,expected=%f,add=%f", tcol_i, trow_i, a, expected_value, diag_add);
+            DEBUG_PRINT("cell[%d,%d]=%f", tcol_i, trow_i, cell_value);
         }
 
         norm = MAX(norm, current_row_norm);
@@ -752,9 +770,8 @@ SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *submatrix)
 
 static
 double
-submat_spmat_list_mult_row_with_s(const submatrix_t *submatrix,
-                                  int row,
-                                  double diag_add,
+submat_spmat_list_mult_row_with_s(const submatrix_t *smat,
+                                  int row_g,
                                   const double *s_vector)
 {
     double result = 0.0;
@@ -762,22 +779,25 @@ submat_spmat_list_mult_row_with_s(const submatrix_t *submatrix,
     node_t *s = NULL;
     int col_g = 0;
     int col_i = 0;
+    int row_i = 0;
     double a = 0.0;
     double expected_value = 0.0;
     bool_t is_zero = TRUE;
-    const int *m = NULL;
     double row_sum = 0.0;
 
-    m = submatrix->adj->neighbors;
-    l = GET_ROW(submatrix->adj->original, row).list;
+    row_i = smat->g[row_g];
+
+    l = GET_ROW(smat->adj->original, row_i).list;
     if (NULL != l) {
         /* If line is NULL, continue with calculation */
         s = l->first;
     }
 
     /* Go over the columns */
-    for (col_g = 0 ;  col_g < submatrix->g_length ; ++col_g) {
-        col_i = submatrix->g[col_g];
+    for (col_g = 0 ;  col_g < smat->g_length ; ++col_g) {
+        col_i = smat->g[col_g];
+
+        expected_value = submat_spmat_get_expected_value(smat, row_i, col_i);
 
         /* Skip irrelevant values from original matrix */
         while ((NULL != s) && (s->index < col_i)) {
@@ -790,16 +810,14 @@ submat_spmat_list_mult_row_with_s(const submatrix_t *submatrix,
             a = 0.0;
         } else {
             a = s->value;
-            row_sum += a;
+            row_sum += (a - expected_value);
             s = s->next;
         }
 
-        expected_value = m[row] * m[col_i] / ((double)(submatrix->adj->M));
-
-        result += (a - expected_value);
+        result += (a - expected_value) * s_vector[col_g];
     }
 
-    result += (diag_add - row_sum) * s_vector[row];
+    result += (smat->add_to_diag - row_sum) * s_vector[row_g];
 
     return result;
 }
@@ -807,25 +825,21 @@ submat_spmat_list_mult_row_with_s(const submatrix_t *submatrix,
 
 double
 SUBMAT_SPMAT_LIST_calculate_q(const submatrix_t *submatrix,
-                              const double *s_vector,
-                              double add_to_diag)
+                              const double *s_vector)
 {
     double current_row_mul = 0.0;
     double mult_vmv = 0.0;
     int row_g = 0;
-    int row_i = 0;
 
     /* Multiply each row with s-vector */
     for (row_g = 0 ; row_g < submatrix->g_length ; ++row_g) {
         current_row_mul = 0.0;
-        row_i = submatrix->g[row_g];
 
         /* Add to result v[row] times M[row, :]*v */
         current_row_mul = submat_spmat_list_mult_row_with_s(submatrix,
-                                                            row_i,
-                                                            add_to_diag,
+                                                            row_g,
                                                             s_vector);
-        mult_vmv += (s_vector[row_i] * current_row_mul);
+        mult_vmv += (s_vector[row_g] * current_row_mul);
     }
 
     return mult_vmv / 2;
@@ -901,7 +915,6 @@ SPMAT_LIST_transpose(const matrix_t *matrix, matrix_t **transposed_out)
         }
 
         scanner = scanned_list->first;
-
         for (; NULL != scanner ; scanner = scanner->next) {
             transposed_list = &GET_ROW(transposed, scanner->index).list;
             /* Initialise row at scanner index */
@@ -915,7 +928,7 @@ SPMAT_LIST_transpose(const matrix_t *matrix, matrix_t **transposed_out)
             result = LIST_insert(*transposed_list,
                                  NULL,
                                  scanner->value,
-                                 scanner->index);
+                                 i);
             if (E__SUCCESS != result) {
                 goto l_cleanup;
             }
@@ -937,18 +950,14 @@ l_cleanup:
 void
 SUBMAT_SPMAT_LIST_mult(const submatrix_t *submatrix,
                        const double *vector,
-                       double diag_add,
                        double *result)
 {
     int row_g = 0;
-    int row_i = 0;
     double current_row_mul = 0.0;
 
     for (row_g = 0 ; row_g < submatrix->g_length ; ++row_g) {
-        row_i = submatrix->g[row_g];
         current_row_mul = submat_spmat_list_mult_row_with_s(submatrix,
-                                                            row_i,
-                                                            diag_add,
+                                                            row_g,
                                                             vector);
         result[row_g] = current_row_mul;
     }

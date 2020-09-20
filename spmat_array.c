@@ -50,8 +50,6 @@ const matrix_vtable_t SPMAT_ARRAY_VTABLE = {
     .free = spmat_array_free,
     .mult = spmat_array_mult,
     .mult_vmv = NULL,
-    .get_1norm = NULL,
-    .decrease_rows_sums_from_diag = NULL
 };
 
 

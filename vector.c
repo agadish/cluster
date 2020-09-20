@@ -58,8 +58,9 @@ VECTOR_random_vector(size_t length, double *vector)
 {
     size_t i = 0;
     int random_int = 0;
-
+#ifndef __DEBUG__
     srand(time(NULL));
+#endif /* __DEBUG__ */
 
     for (i = 0 ; i < length ; ++i) {
         random_int = (rand() % 1000);

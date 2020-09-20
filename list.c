@@ -11,20 +11,14 @@
 #include "results.h"
 #include "list.h"
 
-/* Structs ***************************************************************************************/
 
-
-/* Functions Declarations ************************************************************************/
-static
-result_t
-node_insert(node_t *next, double value, int index, node_t **node_out);
-
+/* Functions Declarations ****************************************************/
 static
 void
 node_link(node_t *first, node_t *second);
 
 
-/* Functions *************************************************************************************/
+/* Functions *****************************************************************/
 static
 void
 node_link(node_t *first, node_t *second)
@@ -36,41 +30,6 @@ node_link(node_t *first, node_t *second)
     if (NULL != second) {
         second->prev = first;
     }
-}
-
-static
-result_t
-node_insert(node_t *next, double value, int index, node_t **node_out)
-{
-    result_t result = E__UNKNOWN;
-    node_t *node = NULL;
-    node_t *prev = NULL;
-
-    node = (node_t *)malloc(sizeof(*node));
-    if (NULL == node) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
-    node->value = value;
-    node->index = index;
-
-    if (NULL != next) {
-        prev = next->prev;
-    }
-
-    node_link(prev, node);
-    node_link(node, next);
-
-    *node_out = node;
-
-    result = E__SUCCESS;
-l_cleanup:
-
-    if (E__SUCCESS != result) {
-        FREE_SAFE(node);
-    }
-
-    return result;
 }
 
 result_t
@@ -121,6 +80,7 @@ LIST_insert(list_t *list, node_t *next_node, double value, int index)
 {
     result_t result = E__UNKNOWN;
     node_t *new_node = NULL;
+    node_t *prev_node = NULL;
 
     if (NULL == list)
     {
@@ -128,22 +88,29 @@ LIST_insert(list_t *list, node_t *next_node, double value, int index)
         goto l_cleanup;
     }
 
-    if (NULL == next_node) {
-        next_node = list->last;
-    }
-
-    result = node_insert(next_node, value, index, &new_node);
-    if (E__SUCCESS != result) {
+    new_node = (node_t *)malloc(sizeof(*new_node));
+    if (NULL == new_node) {
+        result = E__MALLOC_ERROR;
         goto l_cleanup;
     }
-    
+    new_node->value = value;
+    new_node->index = index;
+
     if (NULL == next_node) {
+        prev_node = list->last;
         list->last = new_node;
+    } else {
+        prev_node = next_node->prev;
     }
-    if (NULL == new_node->prev) {
+
+    if (NULL == prev_node) {
         list->first = new_node;
     }
-    
+
+    node_link(prev_node, new_node);
+    node_link(new_node, next_node);
+
+
     result = E__SUCCESS;
 l_cleanup:
 

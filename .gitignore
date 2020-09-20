@@ -9,3 +9,5 @@ Tester_Files
 perf.data
 gmon.out
 *.hex
+*.out
+*.output
