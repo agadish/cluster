@@ -1,9 +1,10 @@
 /**
  * @file submatrix.h
- * @purpose Abstract submatrix class: fields and virtual table
+ * @purpose Hold a sub matrix among the original matrix's adjacency data
  */
 #ifndef __SUBMATRIX_H__
 #define __SUBMATRIX_H__
+
 
 /* Includes ******************************************************************/
 #include <stddef.h>
@@ -14,16 +15,10 @@
 
 
 /* Macros ********************************************************************/
-/* Number of elements on the submatrix */
-#define SUBMATRIX_COUNT(m) ((size_t)((m)->n * (m)->n))
-
-/* Vtable macros */
-#define SUBMATRIX_VTABLE(m) ((m)->vtable)
-#define SUBMATRIX_FREE(m) (SUBMATRIX_free((m)))
 
 #define SUBMATRIX_FREE_SAFE(m) do { \
     if (NULL != (m)) {              \
-        SUBMATRIX_FREE(m);          \
+        SUBMATRIX_free(m);          \
         (m) = NULL;                 \
     }                               \
 } while (0)
@@ -69,9 +64,6 @@ result_t
 SUBMATRIX_create(const adjacency_t *adj,
                  matrix_t *matrix,
                  submatrix_t **smat_out);
-
-result_t
-SUBMATRIX_update(submatrix_t *submatrix, int *g, int g_length);
 
 /*
  * @remark The original, transpoed and g-vector are not freed!

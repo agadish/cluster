@@ -19,14 +19,8 @@
 result_t
 SPMAT_LIST_allocate(int n, matrix_t **mat);
 
-void
-SPMAT_LIST_print(const char *matrix_name, matrix_t *mat_in);
-
 result_t
 SPMAT_LIST_write_neighbors(const matrix_t *matrix, FILE *file);
-
-result_t
-SPMAT_LIST_transpose(const matrix_t *matrix, matrix_t **transposed_out);
 
 double
 SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,

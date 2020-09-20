@@ -15,7 +15,6 @@
 #include "submatrix.h"
 #include "common.h"
 #include "spmat_list.h"
-#include "spmat_array.h"
 
 
 /* Functions *****************************************************************/
@@ -52,11 +51,6 @@ SUBMATRIX_create(const adjacency_t *adj,
     smat->g_length = 0;
     smat->add_to_diag = 0.0;
     smat->orig = matrix;
-
-    /* result = SPMAT_LIST_transpose(orig, &smat->transposed); */
-    /* if (E__SUCCESS != result) { */
-    /*     goto l_cleanup; */
-    /* } */
 
     *smat_out = smat;
 

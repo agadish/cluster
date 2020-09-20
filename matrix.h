@@ -26,21 +26,6 @@
 #define MATRIX_ADD_ROW(m, row, i) \
     MATRIX_VTABLE((m))->add_row((m), (row), (i))
 
-#define MATRIX_MULT(m, vector, result) \
-    MATRIX_VTABLE((m))->mult((m), (vector), (result))
-
-#define MATRIX_MULT_VMV(m, vector) \
-    MATRIX_VTABLE((m))->mult_vmv((m), (vector))
-
-#define MATRIX_GET_1NORM(m) \
-    MATRIX_VTABLE((m))->get_1norm((m))
-
-#define MATRIX_DECREASE_ROWS_SUMS_FROM_DIAG(m) \
-    MATRIX_VTABLE((m))->decrease_rows_sums_from_diag((m))
-
-#define MATRIX_SPLIT(m, s_vec, s_ind, m1_out, m2_out) \
-    MATRIX_VTABLE((m))->split((m), (s_vec), (s_ind), (m1_out), (m2_out))
-
 #define MATRIX_FREE_SAFE(m) do {                            \
     if (NULL != (m)) {                                      \
         MATRIX_FREE(m);                                     \
@@ -51,9 +36,7 @@
 
 /* Enums *********************************************************************/
 typedef enum matrix_type_e {
-    MATRIX_TYPE_RAW = 0,
     MATRIX_TYPE_SPMAT_LIST,
-    MATRIX_TYPE_SPMAT_ARRAY,
     MATRIX_TYPE_MAX
 } matrix_type_t;
 
@@ -92,37 +75,6 @@ typedef double (*matrix_mult_vmv_f)(const matrix_t *matrix,
  */
 typedef double (*matrix_get_1norm_f)(const matrix_t *matrix);
 
-/*
- * Calculate each line's sum and decrease its value from the line's diag member
- *
- * @param matrix The matrix to operate on
- *
- * @return One of result_t values
- **/
-typedef result_t (*matrix_decrease_rows_sums_from_diag_f)(matrix_t *matrix);
-
-/**
- * Split the matrix into two matrices, accordingly to a given s_vector
- *
- * @param matrix The matrix to split.
- * @param s_vector A matrix->n sized vector, contains -1.0 and 1.0 to indicate
- *                 whether each index should be in the first or second matrix
- * @param temp_s_indexes A pre-allocated matrix->n sized buffer which the
- *                       function will use to hold the s-indexes array
- * @param matrix1_out The first splitted matrix
- * @param matrix2_out The second splitted matrix
- *
- * @return One of result_t values.
- *
- * @remark On success, matrix will be freed. On error, matrix will not be freed
- * @remark matrix1 and matrix2 must be freed using MATRIX_FREE(_SAFE) macro
- */
-typedef result_t (*matrix_split_f)(matrix_t *matrix,
-                                    const double *s_vector,
-                                    int *temp_s_indexes,
-                                    matrix_t **matrix1_out,
-                                    matrix_t **matrix2_out);
-
 
 /* Structs *******************************************************************/
 /**
@@ -133,8 +85,6 @@ typedef struct matrix_vtable_s {
     matrix_free_f free;
     matrix_mult_f mult; /* Calculate M*v */
     matrix_mult_vmv_f mult_vmv; /* Calculate v^T*M*v */
-    matrix_get_1norm_f get_1norm;
-    matrix_split_f split;
 } matrix_vtable_t;
 
 /* A square matrix implementation */

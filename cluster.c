@@ -17,7 +17,6 @@
 #include "results.h"
 #include "vector.h"
 #include "spmat_list.h"
-#include "spmat_array.h"
 #include "debug.h"
 #include "list.h"
 #include "division_file.h"
@@ -159,7 +158,7 @@ cluster_divide(submatrix_t *smat,
     /* 1. Calculate leading eigenvector */
     n = smat->g_length;
 
-    /* 1.1. Calculate the 1-norm of the matrix, using b-vector as temp vector */
+    /* 1.1. Calculate the 1-norm of the matrix using b-vector as temp vector */
     onenorm = SUBMAT_SPMAT_LIST_get_1norm(smat, temp_b_vector);
 
     /* 1.2. Randomize b-vector */
@@ -192,7 +191,6 @@ cluster_divide(submatrix_t *smat,
     /* 3. Check divisibility #1 */
     if (0 >= leading_eigenvalue) {
         /* 4.1. Network is indivisable */
-        DEBUG_PRINT("Network is indivisable! leading eigenvalue is %f", leading_eigenvalue);
         result = E__UNDIVISIBLE_NETWORK;
         goto l_cleanup;
     }
@@ -364,8 +362,6 @@ CLUSTER_divide_repeatedly(adjacency_t *adj,
     {
         /* Take next matrix */
         current_matrix = p_group[p_group_length - 1];
-        /* (void)printf("\n\n-------------%s: diving matrix\n", __func__); */
-        /* SPMAT_LIST_print("Original", current_matrix); */
 
         division_result = cluster_sub_divide_optimized(current_matrix,
                                                        temp_b_vector,
@@ -404,13 +400,11 @@ CLUSTER_divide_repeatedly(adjacency_t *adj,
         }
         SUBMATRIX_FREE_SAFE(current_matrix);
         p_group[p_group_length - 1] = NULL;
-        /* printf("divide result-matrix1=%p matrix2=%p\n", (void *)group1, (void *)group2); */
 
         if (0 == group1->g_length) {
             result = DIVISION_FILE_write_matrix(output_file,
                                                 group2->g,
                                                 group2->g_length);
-            /* SPMAT_LIST_print("group2 trivial", group2); */
             if (E__SUCCESS != result) {
                 goto l_cleanup;
             }
@@ -420,7 +414,6 @@ CLUSTER_divide_repeatedly(adjacency_t *adj,
             continue;
         }
         if (0 == group2->g_length) {
-            /* SPMAT_LIST_print("group1 trivial", group1); */
             result = DIVISION_FILE_write_matrix(output_file,
                                                 group1->g,
                                                 group1->g_length);
@@ -431,9 +424,6 @@ CLUSTER_divide_repeatedly(adjacency_t *adj,
             SUBMATRIX_FREE_SAFE(group2);
             continue;
         }
-
-        /* SPMAT_LIST_print("Matrix1", group1); */
-        /* SPMAT_LIST_print("Matrix2", group2); */
 
         if (1 == group1->g_length) {
             result = DIVISION_FILE_write_matrix(output_file,
@@ -570,7 +560,9 @@ cluster_optimize_division_iteration(submatrix_t *smat,
         q_0 = SUBMAT_SPMAT_LIST_calculate_q(smat, s_vector);
 
         /* 3. Computing DeltaQ for the move of each unmoved vertex */
-        for (scanner = unmoved_scores->first ; NULL != scanner ; scanner = scanner->next) {
+        for (scanner = unmoved_scores->first ;
+                NULL != scanner ;
+                scanner = scanner->next) {
             /* Calculate score when moving k */
             k = scanner->index;
             s_vector[k] *= -1;
@@ -646,7 +638,7 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
     int i = 0;
     int k = 0;
     double delta_q = 0.0;
-    /* A negative value will never be the max since the last improvement is always 0 */
+    /* Note: A negative value isn't the max, since trivial improvement is 0 */
     double max_improvement_value = -1.0;
     int max_improvement_index = 0;
 
@@ -658,7 +650,9 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
 
     for (i = 0 ; i < smat->g_length ; ++i) {
         /* 3. Computing DeltaQ for the move of each unmoved vertex */
-        for (scanner = unmoved_scores->first ; NULL != scanner ; scanner = scanner->next) {
+        for (scanner = unmoved_scores->first ;
+                NULL != scanner ;
+                scanner = scanner->next) {
             /* Calculate score when moving k */
             k = scanner->index;
             s_vector[k] *= -1;
@@ -673,7 +667,6 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
                 max_unmoved = scanner;
             }
         }
-        DEBUG_PRINT("max_unmoved index %d score %f", max_unmoved->index, max_unmoved->value);
 
         /* 4. Move vertex max_score_index with a maximal score */
         s_vector[max_unmoved->index] = -s_vector[max_unmoved->index];
@@ -696,7 +689,6 @@ cluster_optimize_division_iteration2(submatrix_t *smat,
             max_improvement_value = improve[i];
         }
     }
-    DEBUG_PRINT("moving node %d with value %f", max_improvement_index, max_improvement_value);
 
     /* 6. Apply the max improvement to the s-vector */
     for (i = smat->g_length - 1 ; i > max_improvement_index ; --i) {

@@ -32,7 +32,6 @@ typedef struct spmat_row_s {
 typedef struct spmat_data_s {
     /* Begin of row's linked list */
     spmat_row_t *rows;
-    double *columns_sum;
 } spmat_data_t;
 
 
@@ -134,10 +133,17 @@ submat_spmat_list_mult_row_with_s(const submatrix_t *submatrix,
                                   int row_g,
                                   const double *s_vector);
 
-static
-double
-spmat_list_get_1norm(const matrix_t *matrix);
-
+/**
+ * Calculate the multiplication result of the row_g'th row of B matrix,
+ * a B matrix (withno hat!) with a given s_vector.
+ * Algorithm is improved: is calculates sequences of zeroes effeciently
+ *
+ * @param smat The submatrix
+ * @param row_g The row index to multiply
+ * @param s_vector s_vector The s vector to multiply with
+ *
+ * @return The multiplication 
+ */
 static
 double
 submat_spmat_list_mult_row_with_s_no_hat_improved(const submatrix_t *smat,
@@ -150,9 +156,7 @@ const matrix_vtable_t SPMAT_LIST_VTABLE = {
     .add_row = spmat_list_add_row,
     .free = spmat_list_free,
     .mult = spmat_list_mult,
-    .get_1norm = spmat_list_get_1norm,
     .mult_vmv = NULL,
-    /* .split = spmat_list_split_matrix */
 };
 
 
@@ -164,7 +168,6 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     matrix_t *mat = NULL;
     spmat_data_t *spmat_data = NULL;
     spmat_row_t *rows_array = NULL;
-    double *columns_sum = NULL;
     int rows_array_size = 0;
 
     /* 0. Input validation */
@@ -214,17 +217,7 @@ SPMAT_LIST_allocate(int n, matrix_t **mat_out)
     /* 4.3. Assign rows */
     spmat_data->rows = rows_array;
 
-    /* 5. Columns sums */
-    columns_sum = (double *)malloc(sizeof(*columns_sum) * n);
-    if (NULL == columns_sum) {
-        result = E__MALLOC_ERROR;
-        goto l_cleanup;
-    }
-    (void)memset(columns_sum, 0, sizeof(*columns_sum) * n);
-    spmat_data->columns_sum = columns_sum;
-
-
-    /* 6. Validate matrix */
+    /* 5. Validate matrix */
     mat->private = (void *)spmat_data;
     
     DEBUG_PRINT("%s: addr %p n=%d\n", __func__, (void *)mat, n);
@@ -265,7 +258,6 @@ spmat_list_free(matrix_t *mat)
                 rows_array = NULL;
             }
             
-            FREE_SAFE(spmat_data->columns_sum);
             FREE_SAFE(spmat_data);
             mat->private = NULL;
         }
@@ -280,7 +272,6 @@ spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
     spmat_row_t *row = NULL;
     node_t *prev_node = NULL;
     node_t *next_node = NULL;
-    spmat_data_t *matrix_data = NULL;
     int col = 0;
 
     /* 0. Input validation */
@@ -302,7 +293,6 @@ spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
     }
 
     /* 2. Add row to matrix */
-    matrix_data = GET_SPMAT_DATA(mat);
     for (col = 0 ; mat->n > col ; ++col) {
         if (0 != values[col]) {
             /* 2.1. Update insertion point */
@@ -355,7 +345,6 @@ spmat_list_add_row(matrix_t *mat, const double *values, int row_index)
             }
 
             row->sum += values[col];
-            matrix_data->columns_sum[col] += fabs(values[col]);
         }
     }
 
@@ -726,25 +715,6 @@ spmat_list_get_rows_sums(const submatrix_t *smat,
     }
 }
 
-static
-double
-spmat_list_get_1norm(const matrix_t *matrix)
-{
-    double norm = 0.0;
-    const spmat_data_t *data = NULL;
-    const double *columns_sum = NULL;
-    int i = 0;
-
-    /* Go over all the columns' norms */
-    data = GET_SPMAT_DATA(matrix);
-    columns_sum = data->columns_sum;
-    for (i = 0 ; i < matrix->n ; ++i) {
-        norm = fabs(MAX(norm, columns_sum[i]));
-    }
-
-    return norm;
-}
-
 double
 SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
                             double *tmp_row_sums)
@@ -824,60 +794,6 @@ SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
     /* Success */
     return norm;
 }
-
-#if 0
-static
-double
-submat_spmat_list_mult_row_with_s_no_hat(const submatrix_t *smat,
-                                         int row_g,
-                                         const double *s_vector)
-{
-    double result = 0.0;
-    list_t *l = NULL;
-    node_t *s = NULL;
-    int col_g = 0;
-    int col_i = 0;
-    int row_i = 0;
-    double a = 0.0;
-    double expected_value = 0.0;
-    bool_t is_zero = TRUE;
-
-    row_i = smat->g[row_g];
-
-    l = GET_ROW(smat->orig, row_g).list;
-    if (NULL != l) {
-        /* If line is NULL, continue with calculation */
-        s = l->first;
-    }
-
-    /* Go over the columns */
-    for (col_g = 0 ;  col_g < smat->g_length ; ++col_g) {
-        col_i = smat->g[col_g];
-
-        expected_value = SPMAT_GET_EXPECTED_VALUE(smat, row_i, col_i);
-
-        /* Skip irrelevant values from original matrix */
-        while ((NULL != s) && (s->index < col_g)) {
-            s = s->next;
-        }
-
-        /* If column is non-zero take s-value */
-        is_zero = (NULL == s) || (s->index > col_g);
-        if (is_zero) {
-            a = 0.0;
-        } else {
-            a = s->value;
-            s = s->next;
-        }
-
-        result += (a - expected_value) * s_vector[col_g];
-    }
-
-    result += (smat->add_to_diag) * s_vector[row_g];
-
-    return result;
-}
-#endif
 
 static
 double

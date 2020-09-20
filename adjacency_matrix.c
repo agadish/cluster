@@ -14,7 +14,6 @@
 #include "common.h"
 #include "adjacency_matrix.h"
 #include "config.h"
-#include "matrix_raw.h"
 #include "debug.h"
 #include "spmat_list.h"
 
