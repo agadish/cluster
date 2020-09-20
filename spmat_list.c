@@ -962,3 +962,19 @@ SUBMAT_SPMAT_LIST_mult(const submatrix_t *submatrix,
         result[row_g] = current_row_mul;
     }
 }
+
+double
+SUBMAT_SPMAT_LIST_calc_q_score(const submatrix_t *smat,
+                       const double *vector,
+                       double row)
+{
+	double q_part1 = 0.0;
+	double q_part2 = 0.0;
+	double q_score = 0.0;
+
+    q_part1 = submat_spmat_list_mult_row_with_s(smat, row, vector);
+    q_part2 = 4*(smat->adj->neighbors[row])*(smat->adj->neighbors[row])/(smat->adj->M);
+    q_score = (((-4) * vector[row]) * q_part1) + q_part2;
+
+    return q_score;
+}
