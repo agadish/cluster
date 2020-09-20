@@ -53,6 +53,46 @@ VECTOR_scalar_multiply(const double * l1, const double * l2, size_t n)
     return result;
 }
 
+double
+VECTOR_scalar_multiply_with_s(const double * l1, const double * s, size_t n)
+{
+    double result = 0.0;
+    const double * l1_end = l1 + n;
+
+#ifdef OPTIMIZE_VECTOR_OPERATIONS
+    for ( ; l1 < l1_end - 1 ; l1 += 2, s += 2) {
+        result += ((l1[0] * (s[0] > 0 ? 1 : -1)) + (l1[1] * (s[1]) > 0 ? 1 : -1));
+    }
+#endif /* OPTIMIZE_VECTOR_OPERATIONS */
+
+    /* If OPTIMIZE_VECTOR_OPERATIONS is defined, this will run up to 1 iteration */
+    for ( ; l1 < l1_end ; ++l1, ++s) {
+        result += (l1[0] * (s[0] > 0 ? 1 : -1));
+    }
+
+    return result;
+}
+
+int
+VECTOR_scalar_multiply_int_with_s(const int * l1, const double * s, size_t n)
+{
+    int result = 0.0;
+    const int * l1_end = l1 + n;
+
+#ifdef OPTIMIZE_VECTOR_OPERATIONS
+    for ( ; l1 < l1_end - 1 ; l1 += 2, s += 2) {
+        result += ((l1[0] * (s[0] > 0 ? 1 : -1)) + (l1[1] * (s[1]) > 0 ? 1 : -1));
+    }
+#endif /* OPTIMIZE_VECTOR_OPERATIONS */
+
+    /* If OPTIMIZE_VECTOR_OPERATIONS is defined, this will run up to 1 iteration */
+    for ( ; l1 < l1_end ; ++l1, ++s) {
+        result += (l1[0] * (s[0] > 0 ? 1 : -1));
+    }
+
+    return result;
+}
+
 void
 VECTOR_random_vector(size_t length, double *vector)
 {

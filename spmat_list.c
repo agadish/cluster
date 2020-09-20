@@ -360,7 +360,7 @@ l_cleanup:
 } 
 
 static
-    void
+void
 spmat_list_mult(const matrix_t *mat, const double *v, double *multiplication_result)
 {
     result_t result = E__UNKNOWN;
@@ -756,6 +756,7 @@ SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
     double diag_add = 0.0;
     double expected_value;
 
+
     /* TODO: Handle zero sized */
     if (smat->g_length == 0){ 
         printf("WARNING WARNING WARNING DAMN SUBMAT_SPMAT_LIST_get_1norm got zero sized mat\n");
@@ -813,6 +814,10 @@ SUBMAT_SPMAT_LIST_get_1norm(const submatrix_t *smat,
 
         norm = MAX(norm, current_row_norm);
     }
+
+    (void)printf("get_1norm\nlong calculated %f, short calculated %f\n",
+            norm,
+            spmat_list_get_1norm(smat->orig));
 
     /* Success */
     return norm;
@@ -896,23 +901,34 @@ submat_spmat_list_mult_row_with_s_no_hat_improved(const submatrix_t *smat,
             current_g = s->index;
 
             /* Add previous 0.0 cells */
-            kj_zeroes_sums += VECTOR_scalar_multiply(&s_vector[prev_g],
-                                                     &smat->adj->neighbors_div_M[prev_g],
-                                                     current_g - prev_g);
-            prev_g = current_g;
+            kj_zeroes_sums += VECTOR_scalar_multiply_with_s(
+                &smat->adj->neighbors_div_M[prev_g],
+                &s_vector[prev_g],
+                current_g - prev_g
+            );
+            /* If current_g is last, the loop will break and the fix will be
+             * applied */
+            prev_g = current_g + 1;
 
+            col_i = smat->g[current_g];
             expected_value = SPMAT_GET_EXPECTED_VALUE(smat, row_i, col_i);
             values_sum += (s->value - expected_value) * (s_vector[current_g] > 0 ? 1 : -1);
         }
     }
-    current_g = smat->g_length;
-    kj_zeroes_sums += VECTOR_scalar_multiply(&s_vector[prev_g],
-                                             &smat->adj->neighbors_div_M[prev_g],
-                                             current_g - prev_g);
-    kj_zeroes_sums *= smat->adj->neighbors[row_g];
+    current_g = smat->g_length + 1;
+
+    printf("%s: [line %d, first %d last %d] after loop: current_g=%d prev_g=%d\n", __func__, row_g, ((NULL != l) ? l->first->index : -1), ((NULL != l) ? l->last->index : -1),  current_g, prev_g);
+
+    kj_zeroes_sums += VECTOR_scalar_multiply_with_s(
+        &smat->adj->neighbors_div_M[prev_g],
+        &s_vector[prev_g],
+        MAX(current_g - prev_g, 0)
+    );
+
+    kj_zeroes_sums *= smat->adj->neighbors[row_i];
 
 
-    result = values_sum - kj_zeroes_sums + (smat->add_to_diag) * s_vector[row_g];
+    result = values_sum - kj_zeroes_sums + (smat->add_to_diag * s_vector[row_g]);
 
     return result;
 }
@@ -1081,18 +1097,41 @@ SUBMAT_SPMAT_LIST_mult(const submatrix_t *submatrix,
 double
 SUBMAT_SPMAT_LIST_calc_q_score(const submatrix_t *smat,
                                const double *vector,
-                               int row)
+                               int row_g)
 {
 	double q_part1 = 0.0;
 	double expected_value = 0.0;
 	double q_score = 0.0;
     int row_i = 0;
-    (void)submat_spmat_list_mult_row_with_s_no_hat;
+    double q_regular = 0.0;
+    double q_improved = 0.0;
+    int i = 0;
 
-    q_part1 = submat_spmat_list_mult_row_with_s_no_hat_improved(smat, row, vector);
-    row_i = smat->g[row];
-    expected_value = 4 * SPMAT_GET_EXPECTED_VALUE(smat, row_i, row_i);
-    q_score = 4 * (vector[row] * q_part1) + expected_value;
+    (void)submat_spmat_list_mult_row_with_s_no_hat;
+    (void)submat_spmat_list_mult_row_with_s_no_hat_improved;
+
+    q_regular = submat_spmat_list_mult_row_with_s_no_hat(smat,
+                                                         row_g,
+                                                         vector);
+
+    q_improved = submat_spmat_list_mult_row_with_s_no_hat_improved(smat,
+                                                                row_g,
+                                                                vector);
+    if (q_regular != q_improved) {
+        for (i = 0 ; i < 50 ; ++i) {
+            printf("WATAWEAWHWIAHWIUAHUWIAHIWUAHIWAHIWAWAW reg %f imp %f\n", q_regular, q_improved);
+        }
+    }
+    q_part1 = q_regular;
+
+#if 0
+    q_part1 = submat_spmat_list_mult_row_with_s_no_hat_improved(smat,
+                                                                row_g,
+                                                                vector);
+#endif
+    row_i = smat->g[row_g];
+    expected_value = SPMAT_GET_EXPECTED_VALUE(smat, row_i, row_i);
+    q_score = 4 * (vector[row_g] * q_part1 + expected_value);
 
     return q_score;
 }
